@@ -7,7 +7,7 @@ os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 from openai import OpenAI
 
-BASE = os.path.expanduser("~/MeetingNotes")
+BASE = os.path.dirname(os.path.abspath(__file__))  # 项目根 = 本文件所在目录（随项目移动，无需改路径）
 DONE = os.path.join(BASE, "done")
 OUTPUT = os.path.join(BASE, "output")
 

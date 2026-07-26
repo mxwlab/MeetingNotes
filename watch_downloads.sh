@@ -4,11 +4,12 @@
 set -u
 setopt NULL_GLOB
 
+BASE="$(cd "$(dirname "$0")" && pwd)"   # 项目根 = 本脚本所在目录（随项目移动）
 DOWNLOADS="$HOME/Downloads"
-INBOX="$HOME/MeetingNotes/inbox"
-LOGDIR="$HOME/MeetingNotes/logs"
+INBOX="$BASE/inbox"
+LOGDIR="$BASE/logs"
 LOG="$LOGDIR/downloads.log"
-LOCK="$HOME/MeetingNotes/.dl.lock"
+LOCK="$BASE/.dl.lock"
 
 # 只搬这些扩展名的文件。想让其它格式也自动搬，往这里加，例如：(m4a mp3 wav)
 EXTS=(m4a)

@@ -5,7 +5,7 @@
 import os
 import tkinter as tk
 
-STATE_FILE = os.path.expanduser("~/MeetingNotes/.pet_state")
+STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".pet_state")
 
 WIN_W, WIN_H, MARGIN_X, MARGIN_Y, RADIUS = 214, 116, 24, 164, 20
 CARD = "#23252b"

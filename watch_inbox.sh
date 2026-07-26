@@ -4,7 +4,7 @@
 set -u
 setopt NULL_GLOB
 
-BASE="$HOME/MeetingNotes"
+BASE="$(cd "$(dirname "$0")" && pwd)"   # 项目根 = 本脚本所在目录（随项目移动）
 INBOX="$BASE/inbox"
 LOGDIR="$BASE/logs"
 PY="$BASE/venv/bin/python"

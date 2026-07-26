@@ -7,17 +7,17 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>/Users/moxiuwen/MeetingNotes/watch_inbox.sh</string>
+    <string>/Users/moxiuwen/workspace/MeetingNotes/watch_inbox.sh</string>
   </array>
   <key>WatchPaths</key>
   <array>
-    <string>/Users/moxiuwen/MeetingNotes/inbox</string>
+    <string>/Users/moxiuwen/workspace/MeetingNotes/inbox</string>
   </array>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>/Users/moxiuwen/MeetingNotes/logs/launchd.out.log</string>
+  <string>/Users/moxiuwen/workspace/MeetingNotes/logs/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/moxiuwen/MeetingNotes/logs/launchd.err.log</string>
+  <string>/Users/moxiuwen/workspace/MeetingNotes/logs/launchd.err.log</string>
 </dict>
 </plist>
