@@ -11,10 +11,15 @@ BASE = os.path.dirname(os.path.abspath(__file__))  # 项目根 = 本文件所在
 DONE = os.path.join(BASE, "done")
 OUTPUT = os.path.join(BASE, "output")
 
-# 纪要同时落一份到 Obsidian vault 的「会议纪要」文件夹（vault 不存在则跳过，不影响主流程）
-OBSIDIAN_DIR = os.path.expanduser("~/Documents/Obsidian Vault/会议纪要")
+# 未设置时保留作者现有默认值；显式设置为空串时跳过 Obsidian 同步。
+_obsidian_dir = os.environ.get("OBSIDIAN_DIR")
+OBSIDIAN_DIR = (
+    os.path.expanduser("~/Documents/Obsidian Vault/会议纪要")
+    if _obsidian_dir is None
+    else os.path.expanduser(_obsidian_dir)
+)
 
-FFMPEG = "/opt/homebrew/bin/ffmpeg"
+FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 # FluidAudio 说话人分离 CLI（本地 Apple 神经引擎，pyannote-community 流水线）；不存在则退回无说话人
 DIARIZE_BIN = os.path.join(BASE, "tools", "FluidAudio", ".build", "release", "fluidaudiocli")
 # 长录音不能只按 10 秒流式切块，否则声纹身份可能随时间漂移。
@@ -564,6 +569,9 @@ def main(audio_path):
 
 def save_to_obsidian(name, notes, audio_filename):
     """把纪要写进 Obsidian vault 的会议纪要文件夹，带 frontmatter 便于检索。成功返回 True。"""
+    if not OBSIDIAN_DIR:
+        log("未配置 OBSIDIAN_DIR，跳过写入 Obsidian")
+        return False
     vault_parent = os.path.dirname(OBSIDIAN_DIR)
     if not os.path.isdir(vault_parent):
         log(f"未找到 Obsidian vault({vault_parent})，跳过写入 Obsidian")
