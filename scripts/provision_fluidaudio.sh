@@ -11,12 +11,13 @@ if [[ -x "$BIN" ]] && "$BIN" --help >/dev/null 2>&1; then
   exit 0
 fi
 
-mkdir -p "${BIN:h}"
-download="$BIN.download.$$"
-trap 'rm -f "$download"' EXIT
-
 installed_prebuilt=false
 if [[ -n "$PREBUILT_URL" ]]; then
+  # 仅预编译下载路径需要预建目标目录；源码编译路径由构建脚本自行 clone，
+  # 提前 mkdir 会让 tools/FluidAudio 提前存在，从而破坏构建脚本的"源码树是否存在"判断。
+  mkdir -p "${BIN:h}"
+  download="$BIN.download.$$"
+  trap 'rm -f "$download"' EXIT
   echo "正在下载 FluidAudio 预编译 CLI…"
   if curl -fsSL "$PREBUILT_URL" -o "$download"; then
     chmod +x "$download"

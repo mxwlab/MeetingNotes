@@ -16,6 +16,12 @@ command -v git >/dev/null || { echo "缺少 git，无法获取 FluidAudio 源码
 command -v swift >/dev/null || { echo "缺少 Swift 工具链，请先安装 Xcode Command Line Tools" >&2; exit 1; }
 [[ -f "$PATCH_SOURCE" ]] || { echo "缺少批量转写补丁: $PATCH_SOURCE" >&2; exit 1; }
 
+# 目录存在但既非 git 检出也无 Package.swift（例如预编译回退时残留的空 .build 目录），
+# 视为无效残留，清除后重新克隆。
+if [[ -d "$FLUID_DIR" && ! -d "$FLUID_DIR/.git" && ! -f "$FLUID_DIR/Package.swift" ]]; then
+  rm -rf "$FLUID_DIR"
+fi
+
 if [[ ! -d "$FLUID_DIR" ]]; then
   mkdir -p "${FLUID_DIR:h}"
   echo "正在克隆 FluidAudio…"
