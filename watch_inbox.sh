@@ -18,11 +18,13 @@ mkdir -p "$LOGDIR"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 # 优先读项目内 config.local.sh；不存在则回退作者原有的 .zshrc 机制（保持向后兼容）
+# >>> config-load
 if [ -f "$BASE/config.local.sh" ]; then
   source "$BASE/config.local.sh"
 else
   eval "$(grep '^export DEEPSEEK_API_KEY=' "$HOME/.zshrc" 2>/dev/null | head -1)" 2>/dev/null
 fi
+# <<< config-load
 
 log() { print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
