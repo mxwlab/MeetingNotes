@@ -29,6 +29,7 @@ settle_project() {
     --exclude .git --exclude .DS_Store --exclude .claude --exclude __pycache__
     --exclude config.local.sh --exclude .pet_state
     --exclude inbox --exclude output --exclude done --exclude logs
+    --exclude 录音 --exclude 纪要
     --exclude models --exclude runtime --exclude venv
     --exclude tools/FluidAudio
   )
@@ -64,6 +65,26 @@ LOG_DIR="$BASE/logs"
 LOG="$LOG_DIR/bootstrap.log"
 mkdir -p "$LOG_DIR" "$BASE/inbox" "$BASE/output" "$BASE/done"
 touch "$LOG"
+
+ensure_symlink() {
+  local link_path="$1"
+  local target_path="$2"
+  local label="$3"
+  if [[ -L "$link_path" ]]; then
+    [[ "$(readlink "$link_path")" == "$target_path" ]] \
+      || fail_early "$label 已存在，但指向了其他位置：$link_path"
+  elif [[ -e "$link_path" ]]; then
+    fail_early "$label 已存在且不是 MeetingNotes 创建的入口：$link_path"
+  else
+    ln -s "$target_path" "$link_path" \
+      || fail_early "无法创建 $label：$link_path"
+  fi
+}
+
+ensure_symlink "$BASE/录音" "$BASE/inbox" "录音文件夹"
+ensure_symlink "$BASE/纪要" "$BASE/output" "纪要文件夹"
+mkdir -p "$HOME/Desktop"
+ensure_symlink "$HOME/Desktop/MeetingNotes 录音" "$BASE/录音" "桌面录音入口"
 
 step_number=0
 total_steps=8
@@ -197,8 +218,8 @@ fi
 
 echo
 echo "MeetingNotes 安装完成。"
-echo "把录音放入：$BASE/inbox"
-echo "生成的纪要在：$BASE/output"
+echo "把录音放入：$BASE/录音"
+echo "生成的纪要在：$BASE/纪要"
 if [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" != true ]]; then
   osascript -e 'display dialog "安装完成！现在可以把录音放进 MeetingNotes 的录音文件夹。" with title "MeetingNotes" buttons {"好"} default button "好" with icon note' \
     >/dev/null 2>&1 || true

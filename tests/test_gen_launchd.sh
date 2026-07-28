@@ -19,6 +19,10 @@ print -r -- "$out" | grep -q "<string>/tmp/foo/logs/launchd.out.log</string>" \
   || { echo "FAIL stdout path"; exit 1; }
 print -r -- "$out" | grep -q "<string>/tmp/foo/logs/launchd.err.log</string>" \
   || { echo "FAIL stderr path"; exit 1; }
+print -r -- "$out" | grep -q "<string>/tmp/foo/venv/bin/python</string>" \
+  || { echo "FAIL bundled python environment"; exit 1; }
+print -r -- "$out" | grep -q "<string>/tmp/foo/bin:/opt/homebrew/bin" \
+  || { echo "FAIL bundled ffmpeg PATH"; exit 1; }
 
 print -r -- "$out" > "$tmp_plist"
 plutil -lint "$tmp_plist" >/dev/null || { echo "FAIL invalid plist"; exit 1; }

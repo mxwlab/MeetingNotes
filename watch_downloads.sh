@@ -6,7 +6,11 @@ setopt NULL_GLOB
 
 BASE="$(cd "$(dirname "$0")" && pwd)"   # 项目根 = 本脚本所在目录（随项目移动）
 DOWNLOADS="$HOME/Downloads"
-INBOX="$BASE/inbox"
+if [[ -d "$BASE/录音" ]]; then
+  INBOX="$BASE/录音"
+else
+  INBOX="$BASE/inbox"
+fi
 LOGDIR="$BASE/logs"
 LOG="$LOGDIR/downloads.log"
 LOCK="$BASE/.dl.lock"

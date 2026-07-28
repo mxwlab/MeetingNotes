@@ -12,7 +12,7 @@ usage() {
 
   --dry-run          显示将移除的服务，不执行任何删除
   --non-interactive  不询问，默认保留 venv/models/tools
-  --remove-runtime   同时删除可重建的 venv/models/tools 大件
+  --remove-runtime   同时删除可重建的 venv/models/tools/runtime/bin 大件
 
 inbox/output/done 中的录音与纪要始终保留。
 config.local.sh 默认保留，便于重新安装。
@@ -44,9 +44,9 @@ if [[ "$DRY_RUN" == true ]]; then
   echo "  用户数据保留: $BASE/inbox, $BASE/output, $BASE/done"
   echo "  本地配置保留: $BASE/config.local.sh"
   if [[ "$REMOVE_RUNTIME" == true ]]; then
-    echo "  将删除可重建大件: $BASE/venv, $BASE/models, $BASE/tools"
+    echo "  将删除可重建大件: $BASE/venv, $BASE/models, $BASE/tools, $BASE/runtime, $BASE/bin"
   else
-    echo "  可重建大件默认保留: $BASE/venv, $BASE/models, $BASE/tools"
+    echo "  可重建大件默认保留: $BASE/venv, $BASE/models, $BASE/tools, $BASE/runtime, $BASE/bin"
   fi
   exit 0
 fi
@@ -77,8 +77,15 @@ else
   echo "为避免留下失效关联，编译脚本暂未删除: $compiled" >&2
 fi
 
+desktop_entry="$HOME/Desktop/MeetingNotes 录音"
+if [[ -L "$desktop_entry" ]] \
+  && [[ "$(readlink "$desktop_entry")" == "$BASE/录音" ]]; then
+  rm -f "$desktop_entry"
+  echo "已移除桌面录音入口"
+fi
+
 if [[ "$NON_INTERACTIVE" != true && "$REMOVE_RUNTIME" != true ]]; then
-  print -n -- "是否删除可重建的 venv/models/tools 大件？[y/N] "
+  print -n -- "是否删除可重建的 venv/models/tools/runtime/bin 大件？[y/N] "
   read -r answer
   case "${answer:l}" in
     y|yes) REMOVE_RUNTIME=true ;;
@@ -88,10 +95,10 @@ fi
 if [[ "$REMOVE_RUNTIME" == true ]]; then
   # Targets are fixed children of this project; user recordings and notes are
   # deliberately outside this list.
-  rm -rf "$BASE/venv" "$BASE/models" "$BASE/tools"
-  echo "已删除 venv/models/tools（可通过 install.sh 重建）"
+  rm -rf "$BASE/venv" "$BASE/models" "$BASE/tools" "$BASE/runtime" "$BASE/bin"
+  echo "已删除 venv/models/tools/runtime/bin（可通过安装引导重建）"
 else
-  echo "已保留 venv/models/tools"
+  echo "已保留 venv/models/tools/runtime/bin"
 fi
 
 echo "卸载完成。inbox/output/done 与 config.local.sh 均已保留。"

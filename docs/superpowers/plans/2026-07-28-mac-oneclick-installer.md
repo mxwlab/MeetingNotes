@@ -105,11 +105,11 @@
 - Modify: `uninstall.sh`
 - Modify/Create tests for the above
 
-- [ ] 明确兼容映射：内部继续使用 `inbox/output`，朋友可见 `录音/纪要` 为同目录的稳定符号链接，避免大范围改处理代码。
-- [ ] 桌面创建“MeetingNotes 录音”替身/符号链接，存在且指向正确时幂等跳过；冲突文件不覆盖，报清楚处理方法。
-- [ ] launchd 明确使用自带 Python 与自带 ffmpeg 环境，不依赖登录 shell。
-- [ ] Folder Action 继续只接收 AirDrop quarantine `0059`，目标改为安装根的朋友可见录音入口。
-- [ ] 卸载增加 A1.5 资产识别：默认保留录音、纪要、配置；只有显式确认才删 runtime/models/venv；桌面入口只在确认为本安装创建时移除。
+- [x] 明确兼容映射：内部继续使用 `inbox/output`，朋友可见 `录音/纪要` 为同目录的稳定符号链接，避免改动处理流水线。
+- [x] 桌面创建“MeetingNotes 录音”符号链接，存在且指向正确时幂等跳过；冲突文件不覆盖并明确报错。
+- [x] launchd 显式设置自带 `venv/bin/python` 与项目 `bin` 优先 PATH，不依赖登录 shell。
+- [x] Folder Action 继续只接收 AirDrop quarantine `0059`，`watch_downloads.sh` 优先搬入朋友可见 `录音` 入口，旧安装无该入口时兼容回退 `inbox`。
+- [x] 卸载识别 A1.5 资产：默认保留录音、纪要、配置和全部 runtime；`--remove-runtime` 才删除 venv/models/tools/runtime/bin；桌面入口只有精确指向本安装时才移除，同名外部入口测试确认保留。
 
 ## Task 7：发布包构建与用户文档
 

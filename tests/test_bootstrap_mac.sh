@@ -71,6 +71,7 @@ home="$tmp/home"
 target="$home/MeetingNotes"
 calls="$tmp/calls.log"
 mkdir -p "$home/Library/LaunchAgents"
+mkdir -p "$home/Desktop"
 make_package "$package"
 
 PATH="$mock_bin:/usr/bin:/bin" HOME="$home" \
@@ -82,6 +83,12 @@ DEEPSEEK_API_KEY="test-key-one" \
   "$package/scripts/bootstrap_mac.sh"
 
 [[ -x "$target/scripts/bootstrap_mac.sh" ]] || { echo "FAIL settle"; exit 1; }
+canonical_target="${target:A}"
+[[ -L "$target/录音" && "$(readlink "$target/录音")" == "$canonical_target/inbox" ]] \
+  || { echo "FAIL visible inbox"; exit 1; }
+[[ -L "$target/纪要" && "$(readlink "$target/纪要")" == "$canonical_target/output" ]] \
+  || { echo "FAIL visible output"; exit 1; }
+[[ -L "$home/Desktop/MeetingNotes 录音" ]] || { echo "FAIL desktop entry"; exit 1; }
 [[ ! -e "$target/models/should-not-copy" ]] || { echo "FAIL copied models"; exit 1; }
 [[ ! -e "$target/inbox/should-not-copy.m4a" ]] || { echo "FAIL copied inbox"; exit 1; }
 [[ ! -e "$target/output/should-not-copy.md" ]] || { echo "FAIL copied output"; exit 1; }
@@ -113,6 +120,7 @@ retry_target="$retry_home/MeetingNotes"
 retry_marker="$tmp/fail-once.marker"
 retry_calls="$tmp/retry-calls.log"
 mkdir -p "$retry_home/Library/LaunchAgents"
+mkdir -p "$retry_home/Desktop"
 make_package "$retry_package"
 cat > "$retry_package/scripts/fetch_ffmpeg.sh" <<'EOF'
 #!/bin/zsh
