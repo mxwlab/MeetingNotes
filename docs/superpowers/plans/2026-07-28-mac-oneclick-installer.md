@@ -53,10 +53,10 @@
 - Create: `tests/test_fetch_ffmpeg.sh`
 - Modify: `NOTICE`
 
-- [ ] 选定明确允许再分发/下载的 arm64 macOS 静态 ffmpeg 固定资产，记录版本、URL、SHA-256、许可证来源。
-- [ ] 写失败测试：正确包安装到 `bin/ffmpeg`；校验失败不覆盖旧版本；现有可用固定版本幂等跳过。
-- [ ] 实现下载、校验、解包、`ffmpeg -version` 验证和原子替换。
-- [ ] 在 `NOTICE` 补齐 ffmpeg 构建来源和许可证义务；发布包带相应许可证文本。
+- [x] 选定 imageio-ffmpeg 0.6.0 官方 PyPI arm64 wheel（FFmpeg 7.1、macOS 11+），固定 URL 与 SHA-256，并记录 GPL 来源。
+- [x] 写失败测试：正确包安装到 `bin/ffmpeg`；校验失败不覆盖旧版本；现有可用固定版本幂等跳过。
+- [x] 实现下载、校验、精确条目提取、arm64/`ffmpeg -version` 验证和原子替换。
+- [x] 在 `NOTICE` 补齐 ffmpeg 构建来源和 GPL v2+ 义务；加入官方 `licenses/FFmpeg-COPYING.GPLv2`。真实 wheel 的 SHA-256、Mach-O arm64、系统库依赖、转码与二次运行均通过。
 
 ## Task 4：FluidAudio 预编译资产接线
 

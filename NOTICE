@@ -14,6 +14,26 @@ FluidAudio 以 Apache License 2.0 授权。其原始许可证文本随置备的�
 本仓库的 `fluidaudio-patch/BatchTranscribeCommand.swift`，并由
 `scripts/build_fluidaudio_from_source.sh` 应用。
 
+FFmpeg
+------
+
+首次安装会从 PyPI 的 `imageio-ffmpeg 0.6.0` Apple Silicon wheel 下载并
+提取 FFmpeg 7.1 可执行文件：
+https://pypi.org/project/imageio-ffmpeg/0.6.0/
+
+该二进制由 imageio-ffmpeg 上游构建，启用了 GPL 组件（其 `-version`
+配置包含 `--enable-gpl`），因此二进制适用 GNU GPL v2 或更高版本，而
+不是 imageio-ffmpeg Python 包自身的 BSD-2-Clause 许可证。FFmpeg 源码、
+许可证及法律说明：
+
+- https://github.com/FFmpeg/FFmpeg/tree/n7.1
+- https://github.com/FFmpeg/FFmpeg/blob/n7.1/COPYING.GPLv2
+- https://ffmpeg.org/legal.html
+
+MeetingNotes 不修改该 ffmpeg 二进制。GPL v2 许可证文本随项目位于
+`licenses/FFmpeg-COPYING.GPLv2`；正式发布包须保留它与以上精确源码版本
+链接，不得把该二进制改称 BSD/Apache 组件。
+
 其他依赖
 --------
 
