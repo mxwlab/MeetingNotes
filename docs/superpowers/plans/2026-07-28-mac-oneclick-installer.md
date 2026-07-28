@@ -37,14 +37,14 @@
 - Create: `tests/test_fetch_python.sh`
 - Modify: `requirements.txt`（仅在兼容性验证要求时）
 
-- [ ] 选定一个支持 arm64 macOS 的 python-build-standalone 固定版本、资产 URL 和 SHA-256；把版本、URL、校验值集中为脚本顶部可覆盖常量。
-- [ ] 写失败测试，以本地 `file://` fixture/mock curl 验证：
+- [x] 选定一个支持 arm64 macOS 的 python-build-standalone 固定版本、资产 URL 和 SHA-256；把版本、URL、校验值集中为脚本顶部可覆盖常量。
+- [x] 写失败测试，以本地 fixture/mock curl 验证：
   - 已存在且版本正确时跳过。
   - 下载后必须校验 SHA-256，错包失败且不污染目标。
   - 解包后 Python 可执行，venv/依赖安装使用该解释器。
-- [ ] 实现断点友好下载到临时文件、校验、临时目录解包、原子移动到 `runtime/python`。
-- [ ] 创建 `venv` 并安装固定依赖；详细 pip 输出由调用方收进 bootstrap 日志。
-- [ ] 在一台不借用系统 Python 的隔离目录验证 `mlx-whisper` 与 `openai` 可 import。
+- [x] 实现断点友好下载到临时文件、校验、临时目录解包、原子移动到 `runtime/python`。
+- [x] 创建 `venv` 并安装固定依赖；详细 pip 输出由调用方收进 bootstrap 日志。
+- [x] 在不借用系统 Python 的隔离目录验证 `mlx-whisper` 与 `openai` 可 import；真实官方资产 SHA-256、arm64、venv、SSL、pip 均通过。另固定 `mlx==0.28.0`，避免新版本只提供 macOS 26 wheel。
 
 ## Task 3：静态 ffmpeg 下载
 
