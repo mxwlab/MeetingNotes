@@ -15,6 +15,9 @@ logs/
 .watch.lock
 .dl.lock
 
+# 本地配置（用户特定的 API 密钥等）
+config.local.sh
+
 # 个人录音与生成的纪要（保留目录结构，不上传内容）
 inbox/*
 output/*

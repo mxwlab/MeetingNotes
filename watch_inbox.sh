@@ -17,8 +17,12 @@ mkdir -p "$LOGDIR"
 # launchd 的默认 PATH 极简，找不到 brew 装的 ffmpeg，这里补上
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-# launchd 不会加载 ~/.zshrc，这里单独把 DeepSeek key 读进来（保持 .zshrc 为唯一来源）
-eval "$(grep '^export DEEPSEEK_API_KEY=' "$HOME/.zshrc" 2>/dev/null | head -1)" 2>/dev/null
+# 优先读项目内 config.local.sh；不存在则回退作者原有的 .zshrc 机制（保持向后兼容）
+if [ -f "$BASE/config.local.sh" ]; then
+  source "$BASE/config.local.sh"
+else
+  eval "$(grep '^export DEEPSEEK_API_KEY=' "$HOME/.zshrc" 2>/dev/null | head -1)" 2>/dev/null
+fi
 
 log() { print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
