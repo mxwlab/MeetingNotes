@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, os, datetime, shutil, subprocess, json, re, string
+import sys, os, datetime, shutil, subprocess, json, re, string, wave, math
 from collections import Counter
 
 # 国内直连 huggingface.co 不稳定，默认走镜像（已设 HF_ENDPOINT 时不覆盖）
@@ -17,6 +17,11 @@ OBSIDIAN_DIR = os.path.expanduser("~/Documents/Obsidian Vault/会议纪要")
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 # FluidAudio 说话人分离 CLI（本地 Apple 神经引擎，pyannote-community 流水线）；不存在则退回无说话人
 DIARIZE_BIN = os.path.join(BASE, "tools", "FluidAudio", ".build", "release", "fluidaudiocli")
+# 长录音不能只按 10 秒流式切块，否则声纹身份可能随时间漂移。
+# 先用流式模式判断是否为多人，再用离线全局聚类统一整场身份。
+LONG_DIARIZATION_SECONDS = 20 * 60
+# 离线模型偶尔会把同一人的不同录音状态拆成多个类；声纹中心高于此相似度时合并。
+SPEAKER_MERGE_COSINE = 0.88
 
 # 模型已用 curl 下到本地目录，优先从本地读，避免每次联网下载卡住；
 # 本地不存在时回退到 HF 仓库名（走镜像下载）。
@@ -65,25 +70,83 @@ RECORD_SYS_SPK = (
     "你在整理会议的【逐字记录】，不是摘要。输入每行以「说话人X：」标注，有识别错字、噪音字、缺标点。\n"
     "请：1) 逐行保留每人全部内容，不概括不删减不合并不同人；2) 补标点、修同音错字、删噪音字和口水重复；"
     "3) 听不清/拿不准处就地加「[?…]」写你的判断或存疑；4) 不凭空加没出现的句子；"
-    "5) 严格按「说话人X：内容」逐行输出，不加标题、不寒暄。")
+    "5) 严格按「说话人X：内容」逐行输出，不加标题、不寒暄；"
+    "6) A/B/C 等标签必须与输入完全一致，绝对不能改成说话人1/2/3 或其他新标签。")
 RECORD_SYS_PLAIN = (
     "你在整理会议的【逐字记录】，不是摘要。输入有识别错字、噪音字、缺标点。\n"
     "请：1) 保留全部内容，不概括不删减；2) 补标点、合理分段、修同音错字、删噪音字和口水重复；"
     "3) 听不清/拿不准处加「[?…]」；4) 不凭空加没出现的句子；5) 只输出整理后的正文，不加标题、不寒暄。")
 
 def _split_chunks(text, size=3000):
+    """按长度分块；带说话人标签的长行在每个续块前重复原标签。
+
+    不能直接从长行中间硬切，否则后续块看不到「说话人A：」，
+    整理模型可能擅自创造「说话人1」等新标签。
+    """
     if len(text) <= size:
         return [text]
+    units = []
+    for line in text.splitlines():
+        match = re.match(r"^(说话人[^：:\n]+[：:])", line)
+        prefix = match.group(1) if match else ""
+        body = line[len(prefix):]
+        budget = max(1, size - len(prefix) - 1)
+        if len(line) <= size:
+            units.append(line)
+            continue
+        while len(body) > budget:
+            cut = budget
+            # 尽量在后 1/3 的中文标点处切，减少从半句话开始的续块。
+            floor = budget * 2 // 3
+            candidates = [body.rfind(mark, floor, budget) for mark in "。！？；，"]
+            best = max(candidates)
+            if best >= floor:
+                cut = best + 1
+            units.append(prefix + body[:cut])
+            body = body[cut:]
+        if body:
+            units.append(prefix + body)
+
     parts, cur = [], ""
-    for line in text.split("\n"):
-        if len(cur) + len(line) + 1 > size and cur:
-            parts.append(cur); cur = ""
-        cur += line + "\n"
-        while len(cur) > size:
-            parts.append(cur[:size]); cur = cur[size:]
+    for unit in units:
+        if cur and len(cur) + len(unit) + 1 > size:
+            parts.append(cur.rstrip())
+            cur = ""
+        cur += unit + "\n"
     if cur.strip():
-        parts.append(cur)
+        parts.append(cur.rstrip())
     return parts
+
+
+def _repair_record_labels(text, source_chunk):
+    """只允许输出使用输入块中真实存在的说话人标签。"""
+    allowed = list(dict.fromkeys(
+        re.findall(r"(?m)^(说话人[^：:\n]+)[：:]", source_chunk)
+    ))
+    if not allowed:
+        return text
+
+    def replace(match):
+        label = match.group(1)
+        if label in allowed:
+            return label + "："
+        if len(allowed) == 1:
+            return allowed[0] + "："
+        numeric = re.fullmatch(r"说话人(\d+)", label)
+        if numeric:
+            index = int(numeric.group(1)) - 1
+            if 0 <= index < len(allowed):
+                return allowed[index] + "："
+        return match.group(0)
+
+    return re.sub(r"(?m)^(说话人[^：:\n]+)[：:]", replace, text)
+
+
+def _format_record_spacing(text):
+    """统一会议全程排版：每段说话人发言之间固定保留一行空白。"""
+    text = text.strip()
+    return re.sub(r"\n+(?=说话人[^：:\n]+[：:])", "\n\n", text)
+
 
 # whisper 中文幻觉词（静音/噪声段容易吐这些视频平台口水话）
 _HALLU = ["点赞", "订阅", "转发", "打赏", "明镜", "点点栏目", "字幕志愿者", "感谢观看",
@@ -129,7 +192,7 @@ _pet_name = ""
 
 def pet_set(state, name="", pct=None):
     """写状态文件驱动桌面小猫；小猫是锦上添花，任何异常都不影响主流程。
-    状态文件三行：状态 / 录音名 / 进度百分比(转录时用，其余留空)。"""
+    状态文件三行：状态 / 录音名 / 进度百分比。"""
     try:
         with open(PET_STATE, "w", encoding="utf-8") as f:
             f.write(f"{state}\n{name}\n{'' if pct is None else int(pct)}\n")
@@ -138,6 +201,9 @@ def pet_set(state, name="", pct=None):
 
 def pet_progress(pct):
     pet_set("transcribe", _pet_name, pct)
+
+def pet_summary_progress(pct):
+    pet_set("summarize", _pet_name, pct)
 
 def pet_launch(name):
     """启动桌面小猫（detached，不阻塞主流程；失败静默）。"""
@@ -245,26 +311,126 @@ def transcribe_whisper(wav_path):
         segs = [{"start": 0, "end": 0, "text": result["text"].strip()}]
     return segs
 
+def _wav_duration(wav_path):
+    try:
+        with wave.open(wav_path, "rb") as f:
+            return f.getnframes() / max(1, f.getframerate())
+    except Exception:
+        return 0
+
+
+def _load_diarization(path, merge_similar=False):
+    d = json.load(open(path, encoding="utf-8"))
+    segments = d.get("segments", [])
+    aliases = {}
+
+    if merge_similar:
+        # 每个初始类别计算按时长和质量加权的声纹中心，再合并明显属于同一人的类别。
+        sums, weights = {}, {}
+        for s in segments:
+            sp = str(s["speakerId"])
+            emb = s.get("embedding") or []
+            norm = math.sqrt(sum(x * x for x in emb))
+            if not emb or norm <= 0:
+                continue
+            duration = max(0.1, s["endTimeSeconds"] - s["startTimeSeconds"])
+            weight = duration * max(0.01, s.get("qualityScore", 1.0))
+            vec = [x / norm for x in emb]
+            if sp not in sums:
+                sums[sp] = [0.0] * len(vec)
+                weights[sp] = 0.0
+            for i, x in enumerate(vec):
+                sums[sp][i] += x * weight
+            weights[sp] += weight
+
+        centers = {}
+        for sp, total in sums.items():
+            vec = [x / weights[sp] for x in total]
+            norm = math.sqrt(sum(x * x for x in vec))
+            if norm > 0:
+                centers[sp] = [x / norm for x in vec]
+
+        parent = {sp: sp for sp in centers}
+
+        def root(sp):
+            while parent[sp] != sp:
+                parent[sp] = parent[parent[sp]]
+                sp = parent[sp]
+            return sp
+
+        def union(a, b):
+            ra, rb = root(a), root(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        speaker_ids = list(centers)
+        for i, a in enumerate(speaker_ids):
+            for b in speaker_ids[i + 1:]:
+                similarity = sum(x * y for x, y in zip(centers[a], centers[b]))
+                if similarity >= SPEAKER_MERGE_COSINE:
+                    union(a, b)
+        aliases = {sp: root(sp) for sp in centers}
+
+        merged_count = len(set(aliases.values()))
+        if merged_count < len(centers):
+            log(f"全局声纹合并：{len(centers)} 类 → {merged_count} 人")
+
+    return [
+        (s["startTimeSeconds"], s["endTimeSeconds"],
+         aliases.get(str(s["speakerId"]), str(s["speakerId"])))
+        for s in segments
+    ]
+
+
 def diarize(wav_path):
-    """FluidAudio 说话人分离，返回 [(start,end,speaker),...]；不可用/失败返回 None（退回无说话人）。"""
+    """FluidAudio 说话人分离。
+
+    短录音使用快速流式模式；20 分钟以上改用离线全局聚类，
+    避免长录音后半段发生说话人身份漂移。任一阶段失败均安全回退。
+    """
     if not os.path.exists(DIARIZE_BIN):
         return None
-    out_json = wav_path + ".diar.json"
+    stream_json = wav_path + ".diar.stream.json"
+    offline_json = wav_path + ".diar.offline.json"
     try:
-        subprocess.run([DIARIZE_BIN, "process", wav_path, "--output", out_json, "--threshold", "0.7"],
+        subprocess.run([DIARIZE_BIN, "process", wav_path, "--output", stream_json, "--threshold", "0.7"],
                        check=True, capture_output=True, timeout=600)
-        d = json.load(open(out_json, encoding="utf-8"))
-        turns = [(s["startTimeSeconds"], s["endTimeSeconds"], str(s["speakerId"]))
-                 for s in d.get("segments", [])]
-        return turns or None
+        stream_turns = _load_diarization(stream_json)
+        if not stream_turns:
+            return None
+
+        duration = _wav_duration(wav_path)
+        speakers = {sp for _, _, sp in stream_turns}
+        if duration < LONG_DIARIZATION_SECONDS or len(speakers) < 2:
+            return stream_turns
+
+        log(f"长录音({duration / 60:.0f}分钟)：切换到全局说话人分离")
+        try:
+            subprocess.run([
+                DIARIZE_BIN, "process", wav_path,
+                "--mode", "offline",
+                "--min-speakers", "2",
+                "--max-speakers", "6",
+                "--output", offline_json,
+            ], check=True, capture_output=True, timeout=1200)
+            offline_turns = _load_diarization(offline_json, merge_similar=True)
+            if offline_turns:
+                offline_speakers = len({sp for _, _, sp in offline_turns})
+                log(f"全局说话人分离完成：自动识别 {offline_speakers} 人")
+                return offline_turns
+            log("全局说话人分离未返回片段，退回快速模式")
+        except Exception as e:
+            log(f"全局说话人分离失败，退回快速模式：{str(e)[:80]}")
+        return stream_turns
     except Exception as e:
         log(f"说话人分离失败，退回无说话人：{str(e)[:80]}")
         return None
     finally:
-        try:
-            os.remove(out_json)
-        except OSError:
-            pass
+        for path in (stream_json, offline_json):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
 def label_transcript(segs, turns):
     """把转录分段按时间归到说话人，合并连续同人 → 「说话人A：…」文本。
@@ -309,6 +475,7 @@ def _ask(system, user, max_tokens=4000):
 
 def summarize(transcript, has_speakers=False):
     log("生成会议纪要...")
+    pet_summary_progress(20)
     prompt = PROMPT.format(transcript=transcript)
     if has_speakers:
         prompt = ("注意：转录文本已按说话人分行标注（说话人A/B/C…），"
@@ -318,6 +485,7 @@ def summarize(transcript, has_speakers=False):
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
+    pet_summary_progress(35)
     return _clean_notes(resp.choices[0].message.content)
 
 def make_record(transcript, has_speakers):
@@ -328,8 +496,9 @@ def make_record(transcript, has_speakers):
     parts = []
     for i, c in enumerate(chunks, 1):
         log(f"会议全程 {i}/{len(chunks)} 块")
-        parts.append(_ask(sysmsg, c, 5000))
-    return "\n".join(p for p in parts if p).strip()
+        parts.append(_repair_record_labels(_ask(sysmsg, c, 5000), c))
+        pet_summary_progress(35 + round(i / len(chunks) * 60))
+    return _format_record_spacing("\n".join(p for p in parts if p))
 
 
 def _clean_notes(notes):
@@ -360,8 +529,9 @@ def main(audio_path):
 
     segs = transcribe(wav)                       # 转录（带进度）
 
-    pet_set("summarize", name)
+    pet_set("summarize", name, 0)
     turns = diarize(wav)                          # 说话人分离（快，约十几秒）
+    pet_summary_progress(15)
     transcript, has_spk, nspk = label_transcript(segs, turns)
     if has_spk:
         log(f"说话人分离：{nspk} 人")
@@ -378,8 +548,10 @@ def main(audio_path):
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(notes)
     log(f"完成: {out_path}")
+    pet_summary_progress(98)
 
     saved = save_to_obsidian(name, notes, os.path.basename(audio_path))
+    pet_summary_progress(100)
 
     try:
         os.remove(wav)

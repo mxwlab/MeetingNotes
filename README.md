@@ -43,8 +43,9 @@ launchctl list | grep meetingnotes
 - **转录模型**：`mlx-community/whisper-large-v3-mlx`，已用 curl 下到 `models/`，本地读取不联网。想换更快的小模型，改 `process.py` 里 `MODEL_WHISPER`。
 - **纪要模型**：DeepSeek `deepseek-v4-flash`（快且便宜；要更高质量可改 `process.py` 里 `LLM_MODEL` 为 `deepseek-v4-pro`）。纪要结构：一句话摘要 / 会议主题 / 参会人 / 讨论要点 / 决议事项 / 待办表格 / 风险·待澄清。
 - **反幻觉过滤**：转录后自动清掉 whisper 在静音段吐的"点赞订阅/嘶嘶嘶"类噪声。
-- **说话人分离**：本地 FluidAudio（`tools/FluidAudio`，跑 Apple 神经引擎）分辨"谁说了什么"，纪要带说话人视角（谁提的/谁负责/谁拍板）。分离失败自动退回无说话人纪要。
+- **说话人分离**：本地 FluidAudio（`tools/FluidAudio`，跑 Apple 神经引擎）分辨"谁说了什么"，纪要带说话人视角（谁提的/谁负责/谁拍板）。20 分钟以上自动切换到整场全局声纹聚类，避免后半段身份漂移；高度相似的声纹类别会自动合并，减少把同一人拆成多人。分离失败自动退回快速模式或无说话人纪要。
 - **双文档产出**：一篇 Obsidian 笔记内含 ①结构化纪要 + ②`# 会议全程`（说话人标注的逐字记录，修错字补标点）。
+- **桌面进度**：右下角桌面小猫在本地转录和 AI 整理纪要两个阶段都显示百分比进度条；整理阶段按说话人分离、结构化纪要、逐块整理会议全程、保存同步逐步推进。
 - **中文转录用 Paraformer**：本地 FluidAudio 的 Paraformer-large(中文，跑神经引擎)，比 whisper 中文更准更快；whisper 作兜底。长音频经自写的 `batch-transcribe`(VAD 切段 + Paraformer 批量)处理。
 - **已知局限**：极端方言 Paraformer 会重复字、whisper 会换错字；电话单声道两人分离偏弱（靠 DeepSeek 按内容补分）。都是最坏情况，普通话多人会议效果好。
 - **API Key**：在 `~/.zshrc` 的 `DEEPSEEK_API_KEY`。launchd 不加载 .zshrc，`watch_inbox.sh` 会单独读取它。

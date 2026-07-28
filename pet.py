@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""桌面小猫：处理录音时出现在右下角，转录时显示真实进度条，干完等用户点击关闭。
+"""桌面小猫：处理录音时出现在右下角，转录和整理纪要都显示进度条，干完等用户点击关闭。
 由 process.py 启动，通过状态文件 ~/MeetingNotes/.pet_state 驱动，与转录/纪要逻辑解耦。
-状态文件三行：状态(transcribe/summarize/done/fail) / 录音名 / 进度百分比(转录时用)。"""
+状态文件三行：状态(transcribe/summarize/done/fail) / 录音名 / 进度百分比。"""
 import os
 import tkinter as tk
 
@@ -15,11 +15,10 @@ BAR_LEN = 10
 # 状态：猫脸、状态文案、模式(progress/busy/static)、是否终态(等用户点击关闭)
 STATES = {
     "transcribe": ("🐱", "🎧 听录音中", "progress", False),
-    "summarize":  ("🐱", "✍️ 整理纪要中", "busy", False),
+    "summarize":  ("🐱", "✍️ 整理纪要中", "progress", False),
     "done":       ("😸", "🎉 纪要好了！", "static", True),
     "fail":       ("😿", "⚠️ 出错了，看日志", "static", True),
 }
-DOTS = ["", "·", "··", "···"]
 
 
 class Pet:
@@ -138,10 +137,6 @@ class Pet:
                 bar = "█" * filled + "░" * (BAR_LEN - filled)
                 self.suffix.config(text=f" {pct:>3}%", width=5, fg="#8ab4f8")   # 百分比接在"听录音中"后面
                 self.detail.config(text=bar, fg="#8ab4f8")                        # 进度条单独一行、居中
-            elif mode == "busy":
-                self.suffix.config(text=DOTS[self.tick % len(DOTS)], width=4, fg="#9aa0aa")
-                self.detail.config(text="")
-
         self.tick += 1
         self.root.after(300, self.update)
 
