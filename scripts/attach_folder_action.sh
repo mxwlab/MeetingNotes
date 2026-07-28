@@ -42,6 +42,14 @@ if [[ "$dry_run" == true ]]; then
   exit 0
 fi
 
-osascript "$ATTACH_SOURCE" "$DOWNLOADS" "$COMPILED"
+# 全新 Mac 上 Folder Actions 从未启用时，若在同一次调用里“启用 + 创建 folder
+# action”会报 -1728（Can't get folder action）。先用独立进程启用并提交子系统，
+# 再执行挂载；挂载失败则重试一次，给 Folder Actions 守护进程留出启动时间。
+osascript -e 'tell application "System Events" to set folder actions enabled to true' \
+  >/dev/null 2>&1 || true
+
+if ! osascript "$ATTACH_SOURCE" "$DOWNLOADS" "$COMPILED" 2>/dev/null; then
+  osascript "$ATTACH_SOURCE" "$DOWNLOADS" "$COMPILED"
+fi
 
 echo "已挂载 AirDrop Folder Action；首次触发如出现自动化授权，请点“允许”。"
