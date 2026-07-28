@@ -32,4 +32,10 @@ run_branch_b() {
 outB="$(run_branch_b)"
 [ "$outB" = "fromzshrc" ] || { echo "FAIL B: $outB"; exit 1; }
 
+# watcher 必须允许 bootstrap 指向自带 Python，并把项目 bin 放在 PATH 最前。
+grep -Fq 'PY="${MEETINGNOTES_PYTHON:-$BASE/venv/bin/python}"' "$DIR/watch_inbox.sh" \
+  || { echo "FAIL C: watcher 未支持 MEETINGNOTES_PYTHON"; exit 1; }
+grep -Fq 'export PATH="$BASE/bin:' "$DIR/watch_inbox.sh" \
+  || { echo "FAIL D: watcher 未优先使用项目 bin"; exit 1; }
+
 echo "PASS"

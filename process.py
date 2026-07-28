@@ -19,7 +19,12 @@ OBSIDIAN_DIR = (
     else os.path.expanduser(_obsidian_dir)
 )
 
-FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+_project_ffmpeg = os.path.join(BASE, "bin", "ffmpeg")
+FFMPEG = (
+    _project_ffmpeg
+    if os.path.isfile(_project_ffmpeg) and os.access(_project_ffmpeg, os.X_OK)
+    else shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+)
 # FluidAudio 说话人分离 CLI（本地 Apple 神经引擎，pyannote-community 流水线）；不存在则退回无说话人
 DIARIZE_BIN = os.path.join(BASE, "tools", "FluidAudio", ".build", "release", "fluidaudiocli")
 # 长录音不能只按 10 秒流式切块，否则声纹身份可能随时间漂移。
@@ -34,11 +39,13 @@ _LOCAL_MODEL = os.path.join(BASE, "models", "whisper-large-v3-mlx")
 MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weights.npz")) \
     else "mlx-community/whisper-large-v3-mlx"
 
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-v4-flash")
+
 client = OpenAI(
     api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com",
+    base_url=LLM_BASE_URL,
 )
-LLM_MODEL = "deepseek-v4-flash"
 
 PROMPT = """你是资深会议纪要撰写者。下面是一段会议录音的转录文本，可能有口语、重复、语音识别错别字。
 请整理成结构化的中文会议纪要，用 Markdown 输出。严格按下面的结构，不要寒暄、不要编造：

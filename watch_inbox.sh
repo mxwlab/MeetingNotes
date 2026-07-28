@@ -7,7 +7,7 @@ setopt NULL_GLOB
 BASE="$(cd "$(dirname "$0")" && pwd)"   # 项目根 = 本脚本所在目录（随项目移动）
 INBOX="$BASE/inbox"
 LOGDIR="$BASE/logs"
-PY="$BASE/venv/bin/python"
+PY="${MEETINGNOTES_PYTHON:-$BASE/venv/bin/python}"
 SCRIPT="$BASE/process.py"
 LOG="$LOGDIR/watch.log"
 LOCK="$BASE/.watch.lock"
@@ -15,7 +15,7 @@ LOCK="$BASE/.watch.lock"
 mkdir -p "$LOGDIR"
 
 # launchd 的默认 PATH 极简，找不到 brew 装的 ffmpeg，这里补上
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export PATH="$BASE/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 # 优先读项目内 config.local.sh；不存在则回退作者原有的 .zshrc 机制（保持向后兼容）
 # >>> config-load
