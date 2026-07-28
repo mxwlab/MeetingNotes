@@ -80,21 +80,21 @@
 - Create: `scripts/prompt_deepseek_key.applescript`
 - Create: `tests/test_bootstrap_mac.sh`
 
-- [ ] 先写全 mock 编排测试，覆盖：
+- [x] 写全 mock 编排测试，覆盖：
   - 非 arm64 立即停止且零写入。
   - 从 Downloads 解压目录运行时复制到 `~/MeetingNotes`，排除 `.git`、模型、venv、录音、纪要、日志和本地配置。
   - 已在 `~/MeetingNotes` 时不自复制。
   - 第二次运行不重复下载、不覆盖 config、不重复生成服务。
   - 任一步失败可重跑续接。
-- [ ] `开始使用.command` 只负责解析自身路径、清理 quarantine（允许时）、调用 bootstrap、在失败时保留窗口并指出日志位置。
-- [ ] bootstrap 以 1/N 中文步骤显示进度，所有技术输出追加到 `logs/bootstrap.log`，错误信息包含“发生了什么 / 怎么重试 / 日志在哪”。
-- [ ] 安顿采用 staging + 原子替换；已存在 `~/MeetingNotes` 时只更新程序文件，严格保留 `config.local.sh`、`录音/inbox`、`纪要/output`、`done`、`logs`、`models`、`runtime`、`venv`。
-- [ ] 用原生对话框录入 key：
+- [x] `开始使用.command` 只负责解析自身路径、清理 quarantine（允许时）、调用 bootstrap、在失败时保留窗口并指出重跑方式。
+- [x] bootstrap 以 1/8 中文步骤显示进度，技术输出追加到 `logs/bootstrap.log`，错误信息包含“发生了什么 / 怎么重试 / 日志在哪”。
+- [x] 首次安顿使用 staging + 原子移动；已有 `~/MeetingNotes` 时先 staging 程序文件再增量更新，严格排除并保留 config、inbox/output/done、logs、models、runtime、venv 与 FluidAudio。
+- [x] 用原生对话框录入 key：
   - 首次自动打开 DeepSeek key 页面。
   - 支持取消并安全退出。
   - 通过轻量 API 请求当场验证；401/余额或网络错误给不同提示。
   - 写入 shell-safe、mode 600 的 `config.local.sh`，不把 key 输出到日志。
-- [ ] 依次调用 Python、ffmpeg、FluidAudio、模型置备，再生成 launchd 与 Folder Action。
+- [x] 依次调用 Python、ffmpeg、FluidAudio、模型置备，再生成 launchd 与 Folder Action。隔离测试覆盖非 arm64 零写入、中文/空格路径安顿、数据排除、配置 mode 600、日志不泄 key、二次运行保留配置，以及中途失败后重跑完成；AppleScript 原生对话框编译通过。
 
 ## Task 6：朋友可见目录、桌面入口与后台服务
 
