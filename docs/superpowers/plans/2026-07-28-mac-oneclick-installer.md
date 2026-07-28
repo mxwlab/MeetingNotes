@@ -141,9 +141,10 @@
 - [ ] 检查日志无 key、zip 无用户数据、录音处理期间无音频网络上传。
 - [ ] 只有上述验收通过后创建 GitHub prerelease，上传 zip、SHA-256、FluidAudio 资产和安装说明。
 
-> 2026-07-28 检查：`fluidaudio-88d6d816` Release 尚不存在。真实无 Xcode
-> 验收依赖该预编译资产，应先发布独立的运行时依赖资产；A1.5 prerelease 仍须等待
-> 本节全部真实验收通过。
+> 2026-07-28：预编译资产已发布到独立公开仓库
+> `mxwlab/meetingnotes-runtime-assets` 的 `fluidaudio-88d6d816` prerelease；
+> 匿名默认 URL 下载、SHA-256、arm64 可执行性均已闭环验证。A1.5 prerelease
+> 仍须等待本节全部真实验收通过。
 
 ## Completion Gate
 

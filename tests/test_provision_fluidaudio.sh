@@ -2,6 +2,11 @@
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+grep -Fq \
+  'https://github.com/mxwlab/meetingnotes-runtime-assets/releases/download/fluidaudio-88d6d816/' \
+  "$ROOT/scripts/provision_fluidaudio.sh" \
+  || { echo "FAIL default prebuilt URL is not publicly downloadable"; exit 1; }
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 

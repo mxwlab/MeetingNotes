@@ -5,7 +5,7 @@ BASE="${0:A:h:h}"
 BIN="$BASE/tools/FluidAudio/.build/release/fluidaudiocli"
 BUILD_SCRIPT="$BASE/scripts/build_fluidaudio_from_source.sh"
 ASSET_NAME="fluidaudiocli-88d6d816-macos14-arm64.gz"
-PREBUILT_URL="${FLUIDAUDIO_PREBUILT_URL:-https://github.com/mxwlab/MeetingNotes/releases/download/fluidaudio-88d6d816/$ASSET_NAME}"
+PREBUILT_URL="${FLUIDAUDIO_PREBUILT_URL:-https://github.com/mxwlab/meetingnotes-runtime-assets/releases/download/fluidaudio-88d6d816/$ASSET_NAME}"
 PREBUILT_SHA256="${FLUIDAUDIO_PREBUILT_SHA256:-cdd4d23cfe7c47c969846908d2557df6efd65621cbc75a8e59497f4361d3b9de}"
 
 if [[ -x "$BIN" ]] && "$BIN" --help >/dev/null 2>&1; then
