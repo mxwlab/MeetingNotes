@@ -1,0 +1,22 @@
+MeetingNotes（声笺）第三方声明
+================================
+
+FluidAudio
+----------
+
+本项目使用 FluidAudio（https://github.com/FluidInference/FluidAudio）。
+FluidAudio 以 Apache License 2.0 授权。其原始许可证文本随置备的源码位于
+`tools/FluidAudio/LICENSE`；分发 FluidAudio 源码或二进制时必须保留该许可证
+及上游随附的 NOTICE/版权声明（如有）。
+
+本项目对 FluidAudio 做了修改：新增并注册 `batch-transcribe` 命令，用于
+长录音的 VAD 切段、Paraformer 批量转写和进度输出。修改相关文件来源于
+本仓库的 `fluidaudio-patch/BatchTranscribeCommand.swift`，并由
+`scripts/build_fluidaudio_from_source.sh` 应用。
+
+其他依赖
+--------
+
+Python 依赖由 `requirements.txt` 声明；各依赖保留其自身的许可证和版权
+声明。发布完整安装包时，应随所包含的第三方源码、二进制和模型提供对应
+上游许可证文件。
