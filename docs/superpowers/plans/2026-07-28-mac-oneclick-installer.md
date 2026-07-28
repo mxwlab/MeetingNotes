@@ -120,11 +120,11 @@
 - Modify: `docs/新手安装图文教程.md`
 - Modify: `.gitignore`
 
-- [ ] 建立显式 allowlist，而非从工作树整体压缩；发布包只含启动器、运行代码、脚本、模板、测试 fixture、许可证与入门文档。
-- [ ] 测试 zip 内绝不含：`.git`、`config.local.sh`、key、`venv/runtime/models/tools/FluidAudio` 源码、`inbox/output/done/logs` 用户内容、`__pycache__`。
-- [ ] 构建产物命名 `MeetingNotes-mac-<version>.zip`，同时输出 SHA-256 和 manifest；构建两次内容可复现（时间戳固定）。
-- [ ] README 首屏改成朋友流程：下载 → 解压 → 右键打开 → 填 key → 等待 → 拖录音。
-- [ ] 图文教程补真实截图并说明唯一 Gatekeeper 操作、隐私边界、约 3GB 下载、失败重跑和卸载。
+- [x] 建立 29 文件显式 allowlist，而非从工作树整体压缩；发布包只含启动器、运行代码、脚本、模板、测试 fixture、许可证与入门文档。
+- [x] 自动测试 zip 不含 `.git`、config/key、venv/runtime/models/tools、用户数据、日志或缓存，并扫描疑似密钥。
+- [x] 构建产物命名 `MeetingNotes-mac-<version>.zip`，同时输出 SHA-256 和逐文件 manifest；固定时间戳、排序、权限与 UTF-8 文件名，两次构建逐字节一致。
+- [x] README 首屏改成朋友流程：下载 → 解压 → 右键打开 → 填 key → 等待 → 拖录音。
+- [ ] 图文教程已改为 A1.5 流程并说明 Gatekeeper、隐私、约 3GB 下载、失败重跑和卸载；真实截图须在 Task 8 真机彩排时补入。
 
 ## Task 8：整装验收与发布
 
