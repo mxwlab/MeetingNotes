@@ -66,11 +66,11 @@
 - Modify: `tests/test_provision_fluidaudio.sh`
 - Create: `scripts/build_fluidaudio_release_asset.sh`
 
-- [ ] 固定作者 Release 资产名、下载 URL 与 SHA-256 输入方式。
-- [ ] 补测试：默认预编译路径无需 Xcode；坏下载失败时只有检测到 Xcode 工具链才允许源码回退，否则给朋友可理解的错误。
-- [ ] 让预编译下载支持校验和、临时文件、原子安装；保留源码回退供开发者/老系统使用。
-- [ ] 增加制作方构建脚本：从已固定 FluidAudio revision 生成 arm64 CLI、运行 `--help`、输出资产与 SHA-256。
-- [ ] 在干净临时目录验证二进制仅依赖系统动态库，并记录最低 macOS 版本。
+- [x] 固定作者 Release 资产名 `fluidaudiocli-88d6d816-macos14-arm64.gz`、预留下载 URL 与 SHA-256；真正上传仍由 Task 8 发布门完成。
+- [x] 补测试：默认预编译路径无需 Xcode；坏下载失败时只有检测到 Xcode 工具链才允许源码回退，否则给朋友可理解的错误。
+- [x] 让预编译下载支持 SHA-256、gzip 临时解包、Mach-O arm64 校验和原子安装；保留源码回退供开发者使用。
+- [x] 增加制作方构建脚本：从固定 FluidAudio revision 生成 arm64 CLI、运行 `--help`、检查依赖、输出确定性 gzip、SHA-256 与 build-info。
+- [x] 真实构建验证：修复仓库移动后 SwiftPM `.build` 绝对路径缓存失效；最终资产 SHA-256 为 `cdd4d23cfe7c47c969846908d2557df6efd65621cbc75a8e59497f4361d3b9de`，仅依赖系统库，最低 macOS 14.0，隔离预编译安装与二次运行通过。
 
 ## Task 5：双击 bootstrap、安顿目录与原生 key 流程
 

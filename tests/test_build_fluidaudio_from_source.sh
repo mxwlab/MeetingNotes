@@ -21,11 +21,15 @@ case "multi-stream":
 }
 EOF
 touch "$fluid/Package.swift"
+mkdir -p "$fluid/.build"
+echo '/old/location/FluidAudio/.build/release' > "$fluid/.build/release.yaml"
 cat > "$project/mock-bin/swift" <<'EOF'
 #!/bin/zsh
 set -eu
 [[ "$*" == "build -c release --product fluidaudiocli" ]] \
   || { echo "unexpected swift args: $*" >&2; exit 2; }
+[[ ! -e .build/release.yaml ]] \
+  || { echo "stale absolute-path cache was not cleared" >&2; exit 3; }
 mkdir -p .build/release
 cat > .build/release/fluidaudiocli <<'BIN'
 #!/bin/zsh

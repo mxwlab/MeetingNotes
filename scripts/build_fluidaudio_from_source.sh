@@ -54,6 +54,14 @@ if ! grep -q 'case "batch-transcribe":' "$CLI_SOURCE"; then
   mv "$patched" "$CLI_SOURCE"
 fi
 
+# SwiftPM 的 release.yaml 会写入源码树绝对路径。项目目录移动后复用旧
+# .build 会让二进制 artifact 仍指向旧位置；只删除可重建缓存，不碰源码。
+if [[ -f "$FLUID_DIR/.build/release.yaml" ]] \
+  && ! grep -Fq "$FLUID_DIR/" "$FLUID_DIR/.build/release.yaml"; then
+  echo "检测到 FluidAudio 构建缓存路径已变化，正在重建缓存…"
+  rm -rf "$FLUID_DIR/.build"
+fi
+
 echo "正在编译 FluidAudio CLI…"
 (
   cd "$FLUID_DIR"
