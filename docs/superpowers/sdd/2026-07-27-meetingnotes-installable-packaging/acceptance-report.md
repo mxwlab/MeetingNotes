@@ -37,7 +37,19 @@
 
 **已修复(防御性加固)**:`scripts/attach_folder_action.sh` 在正式挂载前用**独立 osascript 进程**先 `set folder actions enabled to true`(提交子系统状态),并对挂载**失败重试一次**,给守护进程留启动时间。验证:从冷状态(`enabled=false, count=0`)运行修复后脚本一次成功;`tests/test_attach_folder_action.sh` 回归 PASS;修复后再跑全自动 AirDrop-sim E2E 仍 24s 出纪要。此改动降低干净 clone `install.sh` 8/8 步在全新 Mac 上偶发失败的风险。
 
+## 干净 clone 整装彩排(2026-07-28,零干预)
+
+独立目录 `git clone` 分支后直接 `./install.sh --non-interactive`,**不设 HF_ENDPOINT**,以 `OBSIDIAN_DIR=''` 和 `MEETINGNOTES_DOWNLOADS_DIR=<test>/fake-downloads` 隔离真实 vault 与真 Downloads:
+
+- 4/8 FluidAudio 从源码 clone + swift build 成功(修复 bae0d34)。
+- 5/8 默认镜像失败后**自动回退官方源**并置备成功(修复 f91de76）——朋友无需手动切端点。
+- 7-8/8 launchd（路径哈希 `com.meetingnotes.dc02fd9d`，与主装 `533aaa8b` 共存）+ Folder Action 挂载成功。
+- #1 inbox→纪要 产出正确，`OBSIDIAN_DIR=''` 正确跳过同步。
+- `./uninstall.sh --remove-runtime` **干净解绑 Folder Action，无 -1728，无孤儿脚本**（修复 f91de76）；主装完好。
+
+结论：一键安装/使用/卸载对全新机器闭环成立。三个现场缺口（FluidAudio 置备、镜像回退、卸载解绑）均已修复并在合并链路中验证。
+
 ## 阶段边界
 
-主账号 #1–#4 已实测通过,阶段二迁移完成并处于日常使用态。Folder Action 冷启动瞬态已加固。剩余(可选):真实第二设备物理 AirDrop 复测(链路逻辑已等价验证);干净 clone 全新 Mac 的一键安装现场复跑。旧 `com.moxiuwen.meetingnotes.plist.pre-phase2.bak` 与回滚步骤保留在案。
+主账号 #1–#4 已实测通过，阶段二迁移完成并处于日常使用态；干净 clone 整装彩排零干预通过。剩余：把打包成果**发布**（合并 `main` 并推送 origin，当前只在本地分支，朋友尚无法从 GitHub clone 到 `install.sh`）；可选真实第二设备物理 AirDrop 复测。旧 `com.moxiuwen.meetingnotes.plist.pre-phase2.bak` 与回滚步骤保留在案。
 
