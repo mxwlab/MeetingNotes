@@ -128,8 +128,8 @@
 
 ## Task 8：整装验收与发布
 
-- [ ] 运行所有自动化测试：`zsh tests/*.sh`（逐个）和 Python 测试。
-- [ ] 从构建 zip 解压到带空格/中文的临时路径，使用 mock 网络完成零写系统状态的全编排测试。
+- [x] 运行所有自动化测试：`zsh tests/*.sh`（逐个）和 Python 测试。
+- [x] 从构建 zip 解压到带空格/中文的临时路径，使用 mock 网络完成零写系统状态的全编排测试。
 - [ ] 在未装 Homebrew、未装 Xcode CLT 的 Apple Silicon 测试账户/测试机完成真实验收：
   - 右键打开一次。
   - key 错误与正确路径。
@@ -140,6 +140,10 @@
   - 默认卸载保留数据。
 - [ ] 检查日志无 key、zip 无用户数据、录音处理期间无音频网络上传。
 - [ ] 只有上述验收通过后创建 GitHub prerelease，上传 zip、SHA-256、FluidAudio 资产和安装说明。
+
+> 2026-07-28 检查：`fluidaudio-88d6d816` Release 尚不存在。真实无 Xcode
+> 验收依赖该预编译资产，应先发布独立的运行时依赖资产；A1.5 prerelease 仍须等待
+> 本节全部真实验收通过。
 
 ## Completion Gate
 
