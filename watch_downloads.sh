@@ -26,11 +26,18 @@ for ext in $EXTS; do
     [ -f "$f" ] || continue
     base="$(basename "$f")"
 
-    # 等文件写完（AirDrop/下载进行中）：大小连续两次不变才搬
+    # 等文件写完（AirDrop/下载进行中）：不能是空文件，且大小连续三次不变。
+    # Finder 可能先出现 0 字节占位文件；此时搬走会让 inbox 过早开始转录。
     s1=$(stat -f%z "$f" 2>/dev/null)
+    if [ -z "$s1" ] || [ "$s1" -eq 0 ]; then
+      log "文件为空，等待传输完成: $base"
+      continue
+    fi
     sleep 2
     s2=$(stat -f%z "$f" 2>/dev/null)
-    if [ "$s1" != "$s2" ]; then
+    sleep 2
+    s3=$(stat -f%z "$f" 2>/dev/null)
+    if [ "$s1" != "$s2" ] || [ "$s2" != "$s3" ]; then
       log "文件仍在传输，本次跳过（传完会再次触发）: $base"
       continue
     fi

@@ -41,11 +41,18 @@ for f in "$INBOX"/*.m4a "$INBOX"/*.mp3 "$INBOX"/*.wav "$INBOX"/*.mp4 \
   [ -f "$f" ] || continue
   base="$(basename "$f")"
 
-  # 等文件写完（AirDrop/拷贝进行中）：大小连续两次不变才处理
+  # 等文件写完（AirDrop/拷贝进行中）：不能是空文件，且大小连续三次不变。
+  # Finder/快捷指令有时会先创建同名的 0 字节占位文件，之后才写入实际内容。
   s1=$(stat -f%z "$f" 2>/dev/null)
+  if [ -z "$s1" ] || [ "$s1" -eq 0 ]; then
+    log "文件为空，等待写入完成: $base"
+    continue
+  fi
   sleep 2
   s2=$(stat -f%z "$f" 2>/dev/null)
-  if [ "$s1" != "$s2" ]; then
+  sleep 2
+  s3=$(stat -f%z "$f" 2>/dev/null)
+  if [ "$s1" != "$s2" ] || [ "$s2" != "$s3" ]; then
     log "文件仍在写入，本次跳过（写完后会再次触发）: $base"
     continue
   fi
