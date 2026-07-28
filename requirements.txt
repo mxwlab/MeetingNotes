@@ -1,0 +1,3 @@
+# Direct runtime dependencies. Transitive packages are resolved by pip.
+mlx-whisper==0.4.3
+openai==2.48.0
