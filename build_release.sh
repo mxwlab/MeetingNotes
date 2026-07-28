@@ -91,7 +91,10 @@ with zipfile.ZipFile(
         archive_path = root_name + "/" + relative.replace(os.sep, "/")
         info = zipfile.ZipInfo(archive_path, date_time=(2020, 1, 1, 0, 0, 0))
         info.compress_type = zipfile.ZIP_DEFLATED
-        info.external_attr = (stat.S_IMODE(os.stat(path).st_mode) & 0xFFFF) << 16
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        # Include the Unix regular-file type bit. macOS Archive Utility/ditto
+        # otherwise treats the entry type as unknown and drops executable bits.
+        info.external_attr = ((stat.S_IFREG | mode) & 0xFFFF) << 16
         info.create_system = 3
         with open(path, "rb") as source:
             output.writestr(info, source.read(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)

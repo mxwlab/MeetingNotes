@@ -3,7 +3,7 @@ import sys, os, datetime, shutil, subprocess, json, re, string, wave, math
 from collections import Counter
 
 # 国内直连 huggingface.co 不稳定，默认走镜像（已设 HF_ENDPOINT 时不覆盖）
-os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
 
 from openai import OpenAI
 

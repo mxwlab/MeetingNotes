@@ -27,6 +27,8 @@ import zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
     for name in ("MeetingNotes/开始使用.command", "MeetingNotes/scripts/bootstrap_mac.sh"):
         mode = archive.getinfo(name).external_attr >> 16
+        if not stat.S_ISREG(mode):
+            raise SystemExit(f"not a regular file: {name}")
         if not mode & stat.S_IXUSR:
             raise SystemExit(f"not executable: {name}")
 PY
@@ -65,5 +67,15 @@ fi
   || { echo "FAIL archive checksum"; exit 1; }
 [[ -s "$tmp/one/MeetingNotes-mac-test-build.manifest.txt" ]] \
   || { echo "FAIL manifest"; exit 1; }
+
+if command -v ditto >/dev/null; then
+  native_unpack="$tmp/native-unpacked"
+  mkdir -p "$native_unpack"
+  ditto -x -k "$zip_one" "$native_unpack"
+  [[ -x "$native_unpack/MeetingNotes/开始使用.command" ]] \
+    || { echo "FAIL macOS native extraction dropped launcher executable mode"; exit 1; }
+  [[ -x "$native_unpack/MeetingNotes/scripts/bootstrap_mac.sh" ]] \
+    || { echo "FAIL macOS native extraction dropped bootstrap executable mode"; exit 1; }
+fi
 
 echo "PASS"

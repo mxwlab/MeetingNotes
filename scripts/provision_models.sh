@@ -7,7 +7,10 @@ MODEL_REPO="${WHISPER_MODEL_REPO:-mlx-community/whisper-large-v3-mlx}"
 MODEL_DIR="$BASE/models/whisper-large-v3-mlx"
 FLUIDAUDIO_BIN="$BASE/tools/FluidAudio/.build/release/fluidaudiocli"
 FIXTURE="$BASE/tests/fixtures/tiny.wav"
-export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+export HF_ENDPOINT="${HF_ENDPOINT:-https://huggingface.co}"
+# hf-xet 在部分网络下可能长时间静默停滞；首次安装优先使用可续传的
+# 标准 HTTP 路径。高级用户仍可显式设为 0 重新启用 Xet。
+export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 
 echo "使用 HF_ENDPOINT=$HF_ENDPOINT"
 
@@ -38,8 +41,8 @@ if [[ -f "$MODEL_DIR/config.json" && -f "$MODEL_DIR/weights.npz" ]]; then
 else
   echo "正在下载 Whisper MLX 模型: $MODEL_REPO（HF_ENDPOINT=$HF_ENDPOINT）"
   if ! download_model "$HF_ENDPOINT"; then
-    # 常见于默认镜像（hf-mirror.com）对该仓库的 /resolve/ 返回异常导致
-    # LocalEntryNotFoundError。自动回退官方源重试一次，避免首装硬失败。
+    # 用户显式配置的镜像可能因 /resolve/ 响应异常而失败；自动回退
+    # 官方源重试一次，避免首装硬失败。
     if [[ "$HF_ENDPOINT" != "$CANONICAL_HF" ]]; then
       echo "镜像 $HF_ENDPOINT 下载失败，回退官方源 $CANONICAL_HF 重试…" >&2
       download_model "$CANONICAL_HF" || {

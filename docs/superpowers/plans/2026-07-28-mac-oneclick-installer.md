@@ -138,13 +138,21 @@
   - 真实 AirDrop 生成纪要。
   - 第二次双击幂等。
   - 默认卸载保留数据。
-- [ ] 检查日志无 key、zip 无用户数据、录音处理期间无音频网络上传。
+- [x] 检查日志无 key、zip 无用户数据、录音处理期间无音频网络上传。
 - [ ] 只有上述验收通过后创建 GitHub prerelease，上传 zip、SHA-256、FluidAudio 资产和安装说明。
 
 > 2026-07-28：预编译资产已发布到独立公开仓库
 > `mxwlab/meetingnotes-runtime-assets` 的 `fluidaudio-88d6d816` prerelease；
 > 匿名默认 URL 下载、SHA-256、arm64 可执行性均已闭环验证。A1.5 prerelease
 > 仍须等待本节全部真实验收通过。
+>
+> 同日从发布 zip 在中文/空格隔离路径完成真实公网首次下载彩排：独立
+> Python、ffmpeg、FluidAudio、2.9 GB Whisper 权重及 FluidAudio 模型预热
+> 全部成功，第二次运行保留配置并幂等完成。彩排发现并修复 macOS 原生
+> `ditto` 解压丢失执行权限（zip 条目缺普通文件类型位），以及默认镜像/Xet
+> 大文件传输静默停滞；现在默认官方 Hugging Face 标准 HTTP，仍允许环境变量
+> 覆盖。系统 launchd 与 Folder Action 在彩排中使用隔离替身，因此不能替代
+> 无 Xcode 测试机上的完整人工验收。
 
 ## Completion Gate
 

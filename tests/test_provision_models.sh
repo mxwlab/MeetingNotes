@@ -2,6 +2,13 @@
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+grep -Fq 'HF_ENDPOINT:-https://huggingface.co' \
+  "$ROOT/scripts/provision_models.sh" \
+  || { echo "FAIL canonical Hugging Face endpoint is not the default"; exit 1; }
+grep -Fq 'HF_HUB_DISABLE_XET:-1' \
+  "$ROOT/scripts/provision_models.sh" \
+  || { echo "FAIL Xet is not disabled by default"; exit 1; }
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 project="$tmp/project"
