@@ -40,7 +40,9 @@ MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weigh
     else "mlx-community/whisper-large-v3-mlx"
 
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
-LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-v4-flash")
+# 默认用非推理模型 deepseek-chat：逐字整理/结构化摘要不需要推理，
+# 而推理模型（如 deepseek-v4-flash）会把 token 预算耗在推理上导致正文为空。
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
 
 client = OpenAI(
     api_key=os.environ.get("DEEPSEEK_API_KEY"),
@@ -508,7 +510,14 @@ def make_record(transcript, has_speakers):
     parts = []
     for i, c in enumerate(chunks, 1):
         log(f"会议全程 {i}/{len(chunks)} 块")
-        parts.append(_repair_record_labels(_ask(sysmsg, c, 5000), c))
+        cleaned = _ask(sysmsg, c, 5000)
+        # 安全网：LLM（尤其推理模型）可能把 token 预算耗在推理上、正文返回空；
+        # 此时回退到原始转录该块，绝不让「会议全程」空白。
+        if cleaned.strip():
+            parts.append(_repair_record_labels(cleaned, c))
+        else:
+            log(f"会议全程第 {i} 块正文为空，回退原始转录")
+            parts.append(c)
         pet_summary_progress(35 + round(i / len(chunks) * 60))
     return _format_record_spacing("\n".join(p for p in parts if p))
 

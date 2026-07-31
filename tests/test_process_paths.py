@@ -55,7 +55,7 @@ class ProcessPathResolutionTests(unittest.TestCase):
             os.environ.pop("LLM_MODEL", None)
             process = reload_process()
         self.assertEqual(process.LLM_BASE_URL, "https://api.deepseek.com")
-        self.assertEqual(process.LLM_MODEL, "deepseek-v4-flash")
+        self.assertEqual(process.LLM_MODEL, "deepseek-chat")
 
     def test_llm_settings_can_be_overridden(self):
         env = {
