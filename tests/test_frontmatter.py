@@ -45,6 +45,25 @@ def test_missing_section_returns_empty():
     assert process._section_items(NOTES, "不存在的节") == []
 
 
+def test_obsidian_appends_transcript():
+    import tempfile, os
+    from unittest import mock
+    process = load()
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "vault"))
+        process.OBSIDIAN_DIR = os.path.join(d, "vault", "会议纪要")
+        with mock.patch.object(process, "log"):
+            ok = process.save_to_obsidian("测试", NOTES, "a.m4a",
+                                          transcript_md="## 话题一\n整理后的可读全文")
+        assert ok
+        files = [f for f in os.listdir(process.OBSIDIAN_DIR) if f.endswith(".md")]
+        content = open(os.path.join(process.OBSIDIAN_DIR, files[0]), encoding="utf-8").read()
+        assert "## 会议整理稿" in content          # 整理稿被接进来
+        assert "整理后的可读全文" in content
+        assert "participants:" in content         # frontmatter 仍在
+        assert content.index("# 会议纪要") < content.index("## 会议整理稿")  # 纪要在上
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

@@ -362,7 +362,7 @@ def main(audio_path):
     log(f"完成: {out_path}")
     pet_summary_progress(98)
 
-    saved = save_to_obsidian(name, notes, os.path.basename(audio_path))
+    saved = save_to_obsidian(name, notes, os.path.basename(audio_path), transcript_md=tidy)
     pet_summary_progress(100)
 
     try:
@@ -391,8 +391,8 @@ def _section_items(notes, header):
                 seen.append(part); items.append(part)
     return items[:20]
 
-def save_to_obsidian(name, notes, audio_filename):
-    """把纪要写进 Obsidian vault 的会议纪要文件夹，带 frontmatter 便于检索。成功返回 True。"""
+def save_to_obsidian(name, notes, audio_filename, transcript_md=""):
+    """把纪要（及可选的分段整理稿）写进 Obsidian，带 frontmatter 便于检索。成功返回 True。"""
     if not OBSIDIAN_DIR:
         log("未配置 OBSIDIAN_DIR，跳过写入 Obsidian")
         return False
@@ -420,8 +420,11 @@ def save_to_obsidian(name, notes, audio_filename):
         f"entities: {_yaml_list(entities)}\n"
         "---\n\n"
     )
+    body = notes.rstrip()
+    if transcript_md.strip():
+        body += "\n\n---\n\n## 会议整理稿\n\n" + transcript_md.strip() + "\n"
     with open(md_path, "w") as f:
-        f.write(frontmatter + notes)
+        f.write(frontmatter + body)
     log(f"已写入 Obsidian: {md_path}")
     return True
 
