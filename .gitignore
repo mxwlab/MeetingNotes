@@ -36,3 +36,4 @@ done/*
 *.flac
 !tests/fixtures/tiny.wav
 .DS_Store
+glossary.local.txt

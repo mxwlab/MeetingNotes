@@ -245,6 +245,43 @@ def _chunk_text(text, size):
         i = j
     return out
 
+_GLOSSARY_PATH = os.path.join(BASE, "glossary.local.txt")
+
+def load_glossary():
+    """读个人术语库（每行一个术语，跨会议累积）；不存在或读失败返回 []。"""
+    try:
+        with open(_GLOSSARY_PATH, encoding="utf-8") as f:
+            raw = [ln.strip() for ln in f if ln.strip()]
+    except OSError:
+        return []
+    seen = []
+    for t in raw:
+        if t not in seen:
+            seen.append(t)
+    return seen
+
+def update_glossary(entities):
+    """把本次关键实体并入术语库（去重，上限 300 条，保留最近的）。"""
+    terms = load_glossary()
+    for e in entities:
+        e = (e or "").strip()
+        if e and e not in terms:
+            terms.append(e)
+    terms = terms[-300:]
+    try:
+        with open(_GLOSSARY_PATH, "w", encoding="utf-8") as f:
+            f.write("\n".join(terms) + "\n")
+    except OSError:
+        pass
+
+def _glossary_hint():
+    """把术语库拼成给 LLM 的纠错提示；空库返回空串。"""
+    terms = load_glossary()
+    if not terms:
+        return ""
+    return ("\n【已知术语表】遇到近音错字或拿不准的专有名词，仅在确实吻合时优先纠正为下列已知术语："
+            + "、".join(terms[:120]))
+
 SEGMENT_SYS = (
     "你在把一段会议转录整理成【分段整理稿】(不是摘要,不删内容)。转录无标点分段、有少量错字。\n"
     "请:1) 按话题切分为若干段,每段前加一个简短小标题(## 开头);2) 段内补标点、修明显同音错字、"
@@ -255,7 +292,8 @@ def make_segmented_transcript(transcript):
     if not transcript.strip():
         return ""
     log("生成分段整理稿...")
-    parts = [_ask(SEGMENT_SYS, c, 6000) for c in _chunk_text(transcript, 6000)]
+    sysmsg = SEGMENT_SYS + _glossary_hint()
+    parts = [_ask(sysmsg, c, 6000) for c in _chunk_text(transcript, 6000)]
     return "\n\n".join(p for p in parts if p).strip()
 
 PERPERSON_SYS = (
@@ -276,7 +314,7 @@ PERPERSON_SYS = (
 def summarize_perperson(transcript):
     """按参会人归纳纪要(软归属,不依赖说话人分离)。"""
     log("生成按人归纳纪要...")
-    return _clean_notes(_ask(PERPERSON_SYS, transcript, 4000))
+    return _clean_notes(_ask(PERPERSON_SYS + _glossary_hint(), transcript, 4000))
 
 def _clean_notes(notes):
     """去掉模型有时加的开场白/代码围栏，让纪要从第一个标题开始。"""
@@ -320,6 +358,7 @@ def main(audio_path):
     out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(notes)
+    update_glossary(_section_items(notes, "关键实体"))  # 关键实体并入术语库,反哺后续转录纠错
     log(f"完成: {out_path}")
     pet_summary_progress(98)
 
