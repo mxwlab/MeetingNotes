@@ -39,6 +39,16 @@ _LOCAL_MODEL = os.path.join(BASE, "models", "whisper-large-v3-mlx")
 MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weights.npz")) \
     else "mlx-community/whisper-large-v3-mlx"
 
+# 主转录：Qwen3-ASR（Apple Silicon / Metal，整段，无时间戳）。
+_QWEN_MODEL_ID = "mlx-community/Qwen3-ASR-1.7B-bf16"
+_qwen_model = None
+def _load_qwen():
+    global _qwen_model
+    if _qwen_model is None:
+        from qwen3_asr_mlx import Qwen3ASR
+        _qwen_model = Qwen3ASR.from_pretrained(_QWEN_MODEL_ID)
+    return _qwen_model
+
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
 # 默认用非推理模型 deepseek-chat：逐字整理/结构化摘要不需要推理，
 # 而推理模型（如 deepseek-v4-flash）会把 token 预算耗在推理上导致正文为空。
@@ -267,14 +277,22 @@ def _clean_segments(raw_segs):
         log(f"反幻觉过滤：清掉约 {dropped} 字噪声/幻觉")
     return segs
 
+def transcribe_qwen(wav_path):
+    """Qwen3-ASR 整段转录（Metal），返回纯文本。"""
+    log("转录中(Qwen3-ASR)...")
+    r = _load_qwen().transcribe(wav_path)
+    return (getattr(r, "text", "") or "").strip()
+
 def transcribe(wav_path):
-    """转录并返回过滤后的分段 [{start,end,text},...]（带时间戳，供说话人分离对齐）。
-    优先本地 Paraformer（中文更好，跑 ANE）；不可用/失败则退回 whisper。"""
-    segs = transcribe_paraformer(wav_path)
-    if segs is None:
-        log("Paraformer 不可用/失败，退回 whisper")
-        segs = transcribe_whisper(wav_path)
-    return segs
+    """整段转录：Qwen3-ASR 主，失败回退 whisper。返回纯文本 str。"""
+    try:
+        txt = transcribe_qwen(wav_path)
+        if txt:
+            return txt
+        log("Qwen 返回空，回退 whisper")
+    except Exception as e:
+        log(f"Qwen 转录失败({str(e)[:80]})，回退 whisper")
+    return transcribe_whisper(wav_path)
 
 def transcribe_paraformer(wav_path):
     """调 FluidAudio batch-transcribe（VAD 切段 + Paraformer 中文，本地 ANE）。失败返回 None。"""
@@ -316,14 +334,14 @@ def transcribe_whisper(wav_path):
     except Exception:
         orig = None
     try:
-        result = mlx_whisper.transcribe(wav_path, path_or_hf_repo=MODEL_WHISPER, language="zh")
+        result = mlx_whisper.transcribe(wav_path, path_or_hf_repo=MODEL_WHISPER,
+                                        language="zh", condition_on_previous_text=False)
     finally:
         if orig is not None:
             tmod.tqdm = orig
     segs = _clean_segments(result.get("segments") or [])
-    if not segs and result.get("text"):        # 兜底：无分段就整段
-        segs = [{"start": 0, "end": 0, "text": result["text"].strip()}]
-    return segs
+    text = "".join(s["text"] for s in segs).strip()
+    return text or (result.get("text") or "").strip()
 
 def _wav_duration(wav_path):
     try:
