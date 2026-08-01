@@ -31,15 +31,21 @@ _LOCAL_MODEL = os.path.join(BASE, "models", "whisper-large-v3-mlx")
 MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weights.npz")) \
     else "mlx-community/whisper-large-v3-mlx"
 
-# 主转录：Qwen3-ASR（Apple Silicon / Metal，整段，无时间戳）。
-_QWEN_MODEL_ID = "mlx-community/Qwen3-ASR-1.7B-bf16"
+# 主转录：Qwen3-ASR 1.7B 8-bit（mlx-qwen3-asr，Metal）。实测约 2.5x 于 bf16、
+# 质量相当甚至更好（英文专名如 Figma 更准），故用 8-bit 作主引擎。
+_QWEN_MODEL_ID = "mlx-community/Qwen3-ASR-1.7B-8bit"
 _qwen_model = None
 def _load_qwen():
     global _qwen_model
     if _qwen_model is None:
-        from qwen3_asr_mlx import Qwen3ASR
-        _qwen_model = Qwen3ASR.from_pretrained(_QWEN_MODEL_ID)
+        from mlx_qwen3_asr import load_model
+        _qwen_model, _ = load_model(_QWEN_MODEL_ID)
     return _qwen_model
+
+def _run_qwen(wav_path, model, on_progress=None):
+    """调 mlx_qwen3_asr.transcribe（抽出便于测试打桩）。"""
+    from mlx_qwen3_asr import transcribe
+    return transcribe(wav_path, model=model, language="Chinese", on_progress=on_progress)
 
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
 # 默认用非推理模型 deepseek-chat：逐字整理/结构化摘要不需要推理，
@@ -161,34 +167,20 @@ def transcribe_qwen(wav_path):
 
     转录放后台线程，主线程按「已用时/预估总时」上报进度（qwen3-asr-mlx
     无内部进度钩子）。单次 transcribe 调用，不影响质量，仅避免小猫/日志看着不动。"""
-    log("转录中(Qwen3-ASR)...")
-    import threading, time
-    try:
-        with wave.open(wav_path) as w:
-            audio_sec = w.getnframes() / (w.getframerate() or 16000)
-    except Exception:
-        audio_sec = 0
-    est_total = max(30.0, audio_sec * 0.22)   # 经验实时率 ≈0.22（Metal）
-    box = {}
-    def _run():
+    log("转录中(Qwen3-ASR 8bit)...")
+    # 必须在主线程跑：MLX 的 GPU 流是线程绑定的，丢后台线程会
+    # 报 "no Stream(gpu) in current thread"。进度用库自带 on_progress 回调驱动。
+    _last = [0]
+    def _prog(evt):
         try:
-            box["r"] = _load_qwen().transcribe(wav_path)
-        except Exception as e:
-            box["err"] = e
-    th = threading.Thread(target=_run, daemon=True)
-    t0 = time.time(); th.start()
-    last_log = 0.0
-    while th.is_alive():
-        elapsed = time.time() - t0
-        pet_progress(min(95, int(elapsed / est_total * 100)))
-        if elapsed - last_log >= 30:          # 日志每 ~30s 也动一下
-            log(f"转录中(Qwen3-ASR) {min(95, int(elapsed / est_total * 100))}%…")
-            last_log = elapsed
-        th.join(timeout=2)
-    if "err" in box:
-        raise box["err"]
+            pct = min(100, int(float(evt.get("progress", 0.0) or 0.0) * 100))
+            pet_progress(pct)
+            if pct - _last[0] >= 20:          # 日志每 ~20% 动一下
+                log(f"转录中(Qwen3-ASR) {pct}%…"); _last[0] = pct
+        except Exception:
+            pass
+    r = _run_qwen(wav_path, _load_qwen(), on_progress=_prog)
     pet_progress(100)
-    r = box.get("r")
     return (getattr(r, "text", "") or "").strip()
 
 def transcribe(wav_path):
