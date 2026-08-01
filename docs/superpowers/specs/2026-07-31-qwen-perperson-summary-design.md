@@ -19,20 +19,24 @@
 
 ## 方案
 
-**新流水线**：音频 → ffmpeg 转 16k wav → **Qwen3-ASR-1.7B 整段转录**（Metal）→ 保存原始转录 `_转录.txt`（无说话人标注）→ **LLM 按人归纳纪要**（每人核心汇报 + 会议决策 + 待办[负责人] + 未明确归属要点）→ 写 output/ 与可选 Obsidian。
+**新流水线**：音频 → ffmpeg 转 16k wav → **Qwen3-ASR-1.7B 整段转录**（Metal）→ 两份产物：
+1. **LLM 按人归纳纪要**（每人核心汇报 + 会议决策 + 待办[负责人] + 未明确归属要点）
+2. **LLM 分段整理稿**（按主题分段 + 小标题 + 轻度纠错，可读，无说话人标注）
+
+→ 写 output/ 与可选 Obsidian。
 
 ### 已定决策
 
 | 主题 | 决定 |
 |---|---|
 | 主转录 | Qwen3-ASR-1.7B via `qwen3-asr-mlx`（bf16，Metal，整段） |
-| 兜底 | Qwen 失败/不可用时回退 `mlx-whisper`（整段，加 `condition_on_previous_text=False`） |
+| 兜底 | 保留 `mlx-whisper` 作**代码级兜底**（Qwen 失败时用，加 `condition_on_previous_text=False`）；Whisper 模型本地已存在，**不额外打包/下载**（用户已定：留着，零成本） |
 | 说话人分离 | **移除**（连同 FluidAudio 组件、预编译资产、Swift 置备一并删除，打包大幅简化） |
-| 逐字稿(会议全程) | 移除 `make_record`；仅保留原始转录文本 `_转录.txt` 作参考 |
+| 转录稿(替代逐字稿) | 移除 `make_record`；**保留一份转录稿，但由 LLM 按主题分段、配小标题、轻度纠错**（"分段整理稿"，可读，无说话人标注），不是 ASR 生肉；文件 `_整理稿.md` |
 | 纪要格式 | 新增"按人归纳"：①按参会人的核心汇报/负责事项 ②会议决策 ③待办(任务\|负责人) ④未明确归属要点；软归属并注明不确定 |
 | LLM | 沿用 DeepSeek `deepseek-chat`（可 env 覆盖 base_url/model） |
-| 打包 | bootstrap 装 `qwen3-asr-mlx`，首次下载 Qwen 模型(~3.4GB bf16)；`mlx` 升到 0.31+ |
-| 兼容性 | mlx 0.31+ 无老 macOS wheel → **要求 Apple Silicon + 较新 macOS**（下载页标注）；老系统朋友暂不支持 |
+| 模型 | Qwen `mlx-community/Qwen3-ASR-1.7B-bf16`（~3.4GB，已实测，用户已定不用量化版） |
+| 兼容性 | **先不考虑朋友/老 macOS**（用户已定）——自用优先，要求 Apple Silicon + 较新 macOS（mlx 0.31+）；朋友分发与降级变体本阶段不做 |
 
 ## 架构与改动
 
@@ -61,9 +65,15 @@
 4. 打包：bootstrap 在干净环境装好 qwen3-asr-mlx + 下 Qwen 模型；不再依赖 FluidAudio/Swift。
 5. 速度：71 分钟录音端到端在可接受时间内（目标 <20 分钟）完成。
 
+## 已定（用户 2026-07-31 拍板）
+
+- 先不考虑朋友/老 macOS，自用优先，不做 Whisper-only 降级变体。
+- Qwen 用 bf16，不用量化版。
+- 保留 Whisper 代码级兜底（模型本地已有，零额外成本），不单独打包。
+- 保留一份转录，但要**按段**（LLM 主题分段 + 小标题），不要连续大坨。
+
 ## 待办（进入实现计划细化）
 
-- 是否同时保留 Whisper 模型下载（兜底）vs 仅按需——权衡首次下载体积。
-- Qwen 模型是否用量化版(8bit/4bit)减小体积并实测质量。
-- "按人归纳"提示词定稿与超长转录的分块策略。
-- 老 macOS 朋友的降级路径（是否保留一个 Whisper-only 变体）。
+- "按人归纳"与"分段整理稿"两个提示词定稿。
+- 超长转录（>LLM 上下文）时的分块与分段合并策略。
+- 产物文件命名与 Obsidian 同步格式。
