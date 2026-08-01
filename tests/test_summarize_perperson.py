@@ -22,7 +22,10 @@ def test_perperson_prompt_and_passthrough():
     with mock.patch.object(process, "log"), \
          mock.patch.object(process, "_ask", side_effect=fake_ask):
         out = process.summarize_perperson("转录文本")
-    assert "按参会人" in captured["system"]
+    sysmsg = captured["system"]
+    # 核心结构 + 新增维度都要在提示词里
+    for token in ["TL;DR", "按参会人", "会议决策", "待办", "悬而未决", "风险", "关键实体"]:
+        assert token in sysmsg, token
     assert out.startswith("# 会议纪要")
 
 
