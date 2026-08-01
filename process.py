@@ -335,6 +335,23 @@ def main(audio_path):
     pet_set("done", name)
 
 
+def _section_items(notes, header):
+    """从纪要 markdown 抓某 ## 小节下的条目（拆逗号、去 - 前缀与括号注释），用于 frontmatter。"""
+    m = re.search(r"(?m)^##\s*" + re.escape(header) + r"[^\n]*\n(.*?)(?=\n##\s|\Z)", notes, re.S)
+    if not m:
+        return []
+    items, seen = [], []
+    for line in m.group(1).splitlines():
+        line = re.sub(r"[（(][^)）]*[)）]", "", line).replace("**", "")   # 去括号注释与加粗
+        line = line.strip().lstrip("-*").strip()
+        line = re.sub(r"^\d+[.、)]\s*", "", line)              # 去 "1. "
+        for part in re.split(r"[，,、;；/]", line):
+            part = re.split(r"[：:]", part, 1)[0]              # "术语：说明" 取术语
+            part = part.strip().strip("*").strip()
+            if part and part != "无" and len(part) <= 30 and part not in seen:
+                seen.append(part); items.append(part)
+    return items[:20]
+
 def save_to_obsidian(name, notes, audio_filename):
     """把纪要写进 Obsidian vault 的会议纪要文件夹，带 frontmatter 便于检索。成功返回 True。"""
     if not OBSIDIAN_DIR:
@@ -351,11 +368,17 @@ def save_to_obsidian(name, notes, audio_filename):
     md_path = os.path.join(OBSIDIAN_DIR, md_name)
     if os.path.exists(md_path):
         md_path = os.path.join(OBSIDIAN_DIR, f"{name} {today} {datetime.datetime.now():%H%M%S}.md")
+    def _yaml_list(xs):
+        return "[" + ", ".join('"' + x.replace('"', '') + '"' for x in xs) + "]"
+    participants = _section_items(notes, "参会人")
+    entities = _section_items(notes, "关键实体")
     frontmatter = (
         "---\n"
         "tags: [会议纪要]\n"
         f"date: {today}\n"
         f"source: {audio_filename}\n"
+        f"participants: {_yaml_list(participants)}\n"
+        f"entities: {_yaml_list(entities)}\n"
         "---\n\n"
     )
     with open(md_path, "w") as f:
