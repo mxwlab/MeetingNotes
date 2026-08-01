@@ -2,7 +2,6 @@
 mlx-whisper==0.4.3
 openai==2.48.0
 
-# MLX 0.30+ stopped publishing wheels for older macOS releases. Keep the last
-# verified line that still provides arm64 wheels for macOS 13/14/15, instead
-# of letting a fresh install silently select a macOS 26-only wheel.
-mlx==0.28.0
+# Qwen3-ASR 主转录（Apple Silicon / Metal，需要较新 mlx；本阶段不再支持老 macOS）。
+qwen3-asr-mlx>=0.1.1
+mlx>=0.31
