@@ -602,28 +602,24 @@ def main(audio_path):
     # 开始/进度靠桌面小猫显示，不再发系统通知（只在完成/失败时通知，兜底离开工位的情况）
     pet_launch(name)
 
-    # 转 16k 单声道 wav（whisper 与 FluidAudio 共用）
+    # 转 16k 单声道 wav
     wav = os.path.join(OUTPUT, f".tmp_{stamp}.wav")
     subprocess.run([FFMPEG, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav],
                    check=True, capture_output=True)
 
-    segs = transcribe(wav)                       # 转录（带进度）
-
-    pet_set("summarize", name, 0)
-    turns = diarize(wav)                          # 说话人分离（快，约十几秒）
-    pet_summary_progress(15)
-    transcript, has_spk, nspk = label_transcript(segs, turns)
-    if has_spk:
-        log(f"说话人分离：{nspk} 人")
+    transcript = transcribe(wav)                     # Qwen 主 / whisper 兜底(纯文本)
+    pet_set("summarize", name, 10)
 
     raw_path = os.path.join(OUTPUT, f"{stamp}_{name}_转录.txt")
     with open(raw_path, "w", encoding="utf-8") as f:
         f.write(transcript)
 
-    minutes = summarize(transcript, has_spk)      # 结构化纪要
-    record = make_record(transcript, has_spk)     # 会议全程逐字记录
-    notes = minutes.rstrip() + "\n\n---\n\n# 会议全程\n\n" + record + "\n"
+    tidy = make_segmented_transcript(transcript)     # 分段整理稿
+    tidy_path = os.path.join(OUTPUT, f"{stamp}_{name}_整理稿.md")
+    with open(tidy_path, "w", encoding="utf-8") as f:
+        f.write(tidy + "\n")
 
+    notes = summarize_perperson(transcript)          # 按人归纳纪要
     out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(notes)
