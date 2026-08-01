@@ -505,6 +505,34 @@ def _ask(system, user, max_tokens=4000):
     c = resp.choices[0].message.content or ""
     return re.sub(r"<think>.*?</think>", "", c, flags=re.S).strip()
 
+def _chunk_text(text, size):
+    """按长度粗分块（在句末标点就近切），供 LLM 加工超长文本。"""
+    if len(text) <= size:
+        return [text]
+    out, i = [], 0
+    while i < len(text):
+        j = min(i + size, len(text))
+        if j < len(text):
+            k = max((text.rfind(p, i + size // 2, j) for p in "。！？；\n"), default=-1)
+            if k > i:
+                j = k + 1
+        out.append(text[i:j])
+        i = j
+    return out
+
+SEGMENT_SYS = (
+    "你在把一段会议转录整理成【分段整理稿】(不是摘要,不删内容)。转录无标点分段、有少量错字。\n"
+    "请:1) 按话题切分为若干段,每段前加一个简短小标题(## 开头);2) 段内补标点、修明显同音错字、"
+    "删口水重复,但不概括、不删信息;3) 不凭空添加没出现的内容;4) 只输出整理稿正文。")
+
+def make_segmented_transcript(transcript):
+    """把整段转录整理成带小标题的分段可读稿(无说话人)。"""
+    if not transcript.strip():
+        return ""
+    log("生成分段整理稿...")
+    parts = [_ask(SEGMENT_SYS, c, 6000) for c in _chunk_text(transcript, 6000)]
+    return "\n\n".join(p for p in parts if p).strip()
+
 def summarize(transcript, has_speakers=False):
     log("生成会议纪要...")
     pet_summary_progress(20)
