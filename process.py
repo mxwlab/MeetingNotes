@@ -533,6 +533,19 @@ def make_segmented_transcript(transcript):
     parts = [_ask(SEGMENT_SYS, c, 6000) for c in _chunk_text(transcript, 6000)]
     return "\n\n".join(p for p in parts if p).strip()
 
+PERPERSON_SYS = (
+    "你是会议纪要专家。下面是一场会议的完整转录(内容较准,但无说话人标注,有少量错字)。请:\n"
+    "1) 尽力从上下文识别每位参会人(有自称/被点名的用名字,否则用「负责X的人」);\n"
+    "2) 【按参会人归纳】逐个列出其核心汇报/发言要点与负责事项;\n"
+    "3) 单列【会议决策】;4) 单列【待办事项】(任务|负责人);\n"
+    "5) 实在无法归属的重要内容放【未明确归属的要点】。\n"
+    "实事求是,不编造没出现的人或事,不确定就注明。以 Markdown 输出,首行为 `# 会议纪要`。")
+
+def summarize_perperson(transcript):
+    """按参会人归纳纪要(软归属,不依赖说话人分离)。"""
+    log("生成按人归纳纪要...")
+    return _clean_notes(_ask(PERPERSON_SYS, transcript, 4000))
+
 def summarize(transcript, has_speakers=False):
     log("生成会议纪要...")
     pet_summary_progress(20)
