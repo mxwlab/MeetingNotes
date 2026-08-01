@@ -26,6 +26,9 @@ def test_perperson_prompt_and_passthrough():
     # 核心结构 + 新增维度都要在提示词里
     for token in ["TL;DR", "按参会人", "会议决策", "待办", "悬而未决", "风险", "关键实体"]:
         assert token in sysmsg, token
+    # 保守归纳:防止臆造/听错人名
+    for token in ["名字存疑", "发言", "角色"]:
+        assert token in sysmsg, token
     assert out.startswith("# 会议纪要")
 
 
