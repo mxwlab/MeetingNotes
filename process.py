@@ -163,10 +163,10 @@ def _clean_segments(raw_segs):
     return segs
 
 def transcribe_qwen(wav_path):
-    """Qwen3-ASR 整段转录（Metal），返回纯文本。
+    """Qwen3-ASR 8-bit 整段转录（mlx-qwen3-asr，Metal），返回纯文本。
 
-    转录放后台线程，主线程按「已用时/预估总时」上报进度（qwen3-asr-mlx
-    无内部进度钩子）。单次 transcribe 调用，不影响质量，仅避免小猫/日志看着不动。"""
+    在主线程运行（MLX GPU 流线程绑定，不能丢后台线程），用库自带 on_progress
+    回调把进度上报给桌面小猫/日志，避免看着不动。"""
     log("转录中(Qwen3-ASR 8bit)...")
     # 必须在主线程跑：MLX 的 GPU 流是线程绑定的，丢后台线程会
     # 报 "no Stream(gpu) in current thread"。进度用库自带 on_progress 回调驱动。
@@ -274,6 +274,32 @@ def _glossary_hint():
     return ("\n【已知术语表】遇到近音错字或拿不准的专有名词，仅在确实吻合时优先纠正为下列已知术语："
             + "、".join(terms[:120]))
 
+_PEOPLE_PATH = os.path.join(BASE, "people.local.txt")
+
+def load_people():
+    """读个人已知参会人名单（每行一个真名，跨会议手动维护）；不存在返回 []。"""
+    try:
+        with open(_PEOPLE_PATH, encoding="utf-8") as f:
+            raw = [ln.strip() for ln in f if ln.strip()]
+    except OSError:
+        return []
+    seen = []
+    for n in raw:
+        if n not in seen:
+            seen.append(n)
+    return seen
+
+def _people_hint():
+    """把已知参会人名单拼成给 LLM 的软提示（纠正近音错字，同时放行新人）；空则空串。"""
+    ppl = load_people()
+    if not ppl:
+        return ""
+    return ("\n【已知参会人名单】" + "、".join(ppl[:60]) +
+            "。若转录里的人名明显是名单中某人的近音错字，**当作同一个人**处理："
+            "统一用名单里的正确名，并把该人的所有发言并到这一个名下，"
+            "**绝不要把错字版本再单独列成另一个（存疑的）参会人**。"
+            "但**允许出现名单外的新人**，不要把名单外的人硬套成名单里的人。")
+
 SEGMENT_SYS = (
     "你在把一段会议转录整理成【分段整理稿】(不是摘要,不删内容)。转录无标点分段、有少量错字。\n"
     "请:1) 按话题切分为若干段,每段前加一个简短小标题(## 开头);2) 段内补标点、修明显同音错字、"
@@ -284,7 +310,7 @@ def make_segmented_transcript(transcript):
     if not transcript.strip():
         return ""
     log("生成分段整理稿...")
-    sysmsg = SEGMENT_SYS + _glossary_hint()
+    sysmsg = SEGMENT_SYS + _glossary_hint() + _people_hint()
     parts = [_ask(sysmsg, c, 6000) for c in _chunk_text(transcript, 6000)]
     return "\n\n".join(p for p in parts if p).strip()
 
@@ -310,7 +336,7 @@ PERPERSON_SYS = (
 def summarize_perperson(transcript):
     """按参会人归纳纪要(软归属,不依赖说话人分离)。"""
     log("生成按人归纳纪要...")
-    return _clean_notes(_ask(PERPERSON_SYS + _glossary_hint(), transcript, 4000))
+    return _clean_notes(_ask(PERPERSON_SYS + _glossary_hint() + _people_hint(), transcript, 4000))
 
 def _clean_notes(notes):
     """去掉模型有时加的开场白/代码围栏，让纪要从第一个标题开始。"""
