@@ -314,6 +314,9 @@ def make_segmented_transcript(transcript):
         return ""
     log("生成分段整理稿...")
     sysmsg = SEGMENT_SYS + _glossary_hint() + _people_hint()
+    # 实测:chunk 调小(2500)并不能改善"读不通"——剩下的糙段是源头 ASR 听错/听碎
+    # (特级/IoT根/袁州…),改写没有音频、强行改通=编造(违红线),故模型正确地保守。
+    # 结论:chunk 大小不是杠杆,维持 6000(更少调用/更快)。可读性靠术语库/人名库随用随攒。
     parts = [_ask(sysmsg, c, 6000) for c in _chunk_text(transcript, 6000)]
     return "\n\n".join(p for p in parts if p).strip()
 
