@@ -11,23 +11,23 @@ def load():
     return importlib.import_module("process")
 
 
-def test_perperson_prompt_and_passthrough():
+def test_minutes_prompt_and_passthrough():
     process = load()
     captured = {}
 
     def fake_ask(system, user, max_tokens=4000):
         captured["system"] = system
-        return "# 会议纪要\n## 按参会人归纳\n..."
+        return "# 会议纪要\n## 讨论要点\n..."
 
     with mock.patch.object(process, "log"), \
          mock.patch.object(process, "_ask", side_effect=fake_ask):
-        out = process.summarize_perperson("转录文本")
+        out = process.summarize_minutes("转录文本")
     sysmsg = captured["system"]
-    # 核心结构 + 新增维度都要在提示词里
-    for token in ["TL;DR", "按参会人", "会议决策", "待办", "悬而未决", "风险", "关键实体"]:
+    # 按议题的结构 + 各维度都要在提示词里
+    for token in ["TL;DR", "参会人", "讨论要点", "会议决策", "待办", "悬而未决", "风险", "关键实体"]:
         assert token in sysmsg, token
-    # 保守归纳:防止臆造/听错人名
-    for token in ["名字存疑", "发言", "角色"]:
+    # 按议题、不按人:避免无说话人信息时套错人
+    for token in ["按议题", "不要写", "不要按人"]:
         assert token in sysmsg, token
     assert out.startswith("# 会议纪要")
 

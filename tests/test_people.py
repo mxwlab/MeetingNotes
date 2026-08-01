@@ -27,8 +27,8 @@ def test_people_hint_and_injection():
 
         with mock.patch.object(process, "log"), \
              mock.patch.object(process, "_ask", side_effect=fake_ask):
-            process.summarize_perperson("t")
-        assert "张清源" in cap["s"]  # 名单注入到了归纳提示词
+            process.summarize_minutes("t")
+        assert "张清源" in cap["s"]  # 名单注入到了纪要提示词
 
 
 def test_people_empty_returns_empty():

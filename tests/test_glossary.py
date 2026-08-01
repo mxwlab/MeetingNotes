@@ -33,7 +33,7 @@ def test_hint_injected_when_glossary_exists():
 
         with mock.patch.object(process, "log"), \
              mock.patch.object(process, "_ask", side_effect=fake_ask):
-            process.summarize_perperson("t")
+            process.summarize_minutes("t")
         assert "飞客码" in captured["sys"]
         assert "已知术语表" in captured["sys"]
 

@@ -20,7 +20,7 @@ def test_main_writes_three_artifacts():
          mock.patch("subprocess.run"), mock.patch("shutil.move"), mock.patch("os.remove"), \
          mock.patch.object(process, "transcribe", return_value="转录文本"), \
          mock.patch.object(process, "make_segmented_transcript", return_value="## 段\n整理"), \
-         mock.patch.object(process, "summarize_perperson", return_value="# 会议纪要\n内容"), \
+         mock.patch.object(process, "summarize_minutes", return_value="# 会议纪要\n内容"), \
          mock.patch.object(process, "save_to_obsidian", return_value=False), \
          mock.patch("os.path.exists", return_value=True):
         process.main("/x/测试录音.m4a")
