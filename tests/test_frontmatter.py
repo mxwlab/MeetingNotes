@@ -34,6 +34,15 @@ def test_extract_participants():
     assert all("（" not in p for p in ppl)  # 去掉括号注释
 
 
+def test_extract_participants_skips_disclaimer_blockquote():
+    process = load()
+    notes = ("# 会议纪要\n## 参会人\n> 注：人名由语音识别推断，可能有误。\n\n"
+             "郭总、张清源\n## 关键实体 / 术语\n无\n")
+    ppl = process._section_items(notes, "参会人")
+    assert "郭总" in ppl and "张清源" in ppl
+    assert "注" not in ppl and "可能有误。" not in ppl  # 免责声明不进 frontmatter
+
+
 def test_extract_entities():
     process = load()
     ents = process._section_items(NOTES, "关键实体")

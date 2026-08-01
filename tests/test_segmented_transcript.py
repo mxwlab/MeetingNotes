@@ -13,11 +13,19 @@ def load():
 
 def test_segments_via_llm():
     process = load()
+    captured = {}
+
+    def fake_ask(system, user, max_tokens=6000):
+        captured["s"] = system
+        return "## 话题一\n内容..."
+
     with mock.patch.object(process, "log"), \
-         mock.patch.object(process, "_ask", return_value="## 话题一\n内容...") as a:
+         mock.patch.object(process, "_ask", side_effect=fake_ask) as a:
         out = process.make_segmented_transcript("说了一大坨没有分段的转录文本")
     assert "## 话题一" in out
     assert a.call_count >= 1
+    # 整理稿是「通顺改写」而非逐字保真
+    assert "改写" in captured["s"] and "通顺" in captured["s"]
 
 
 def test_empty_returns_empty():
