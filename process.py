@@ -331,7 +331,8 @@ MINUTES_SYS = (
     "## 待办事项\n表格:| 任务 | 负责人 | 截止时间 | 优先级 |。**负责人两个条件都满足才填:(1)转录里明确指派(如「X负责/X去做/X来接」);(2)这个名字精确出现在下方【已知参会人】名单里。**只要有一条不满足,负责人格**直接写「—」**——**不要写名单外的名字,不要加「(名单外)」「(推断)」之类批注,也不要猜。名单外的名字多半是识别错的,当没看见。\n"
     "## 悬而未决 / 分歧点\n提出但未拍板的问题、有分歧未统一处——这节很重要,尽量抓全。\n"
     "## 风险 / 阻塞\n什么被什么卡住、影响什么。\n"
-    "## 关键实体 / 术语\n涉及的系统/产品/工具/项目等专有名词,便于日后检索。\n"
+    "## 关键实体 / 术语\n涉及的系统/产品/工具/项目等专有名词,**每个一行,格式 `- **术语**:一句话解释`**"
+    "(解释按会上能理解的角度写它是什么/干嘛用/属于谁;实在不清楚就写用途或所属),便于日后检索。\n"
     "要求:实事求是,不编造没出现的事。")
 
 def summarize_minutes(transcript):
@@ -409,8 +410,13 @@ def _section_items(notes, header):
         line = re.sub(r"[（(][^)）]*[)）]", "", line).replace("**", "")   # 去括号注释与加粗
         line = line.strip().lstrip("-*").strip()
         line = re.sub(r"^\d+[.、)]\s*", "", line)              # 去 "1. "
-        for part in re.split(r"[，,、;；/]", line):
-            part = re.split(r"[：:]", part, 1)[0]              # "术语：说明" 取术语
+        # 定义行「术语：解释」只取术语,不拆解释(否则解释里的逗号会把碎片当术语);
+        # 纯列举行(无冒号)才按逗号/顿号拆成多项。
+        if re.search(r"[：:]", line):
+            parts = [re.split(r"[：:]", line, 1)[0]]
+        else:
+            parts = re.split(r"[，,、;；/]", line)
+        for part in parts:
             part = part.strip().strip("*").strip()
             if part and part != "无" and len(part) <= 30 and part not in seen:
                 seen.append(part); items.append(part)

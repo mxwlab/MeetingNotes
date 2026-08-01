@@ -24,7 +24,7 @@ def test_minutes_prompt_and_passthrough():
         out = process.summarize_minutes("转录文本")
     sysmsg = captured["system"]
     # 按议题的结构 + 各维度都要在提示词里
-    for token in ["TL;DR", "参会人", "讨论要点", "会议决策", "待办", "悬而未决", "风险", "关键实体"]:
+    for token in ["TL;DR", "参会人", "讨论要点", "会议决策", "待办", "悬而未决", "风险", "关键实体", "解释"]:
         assert token in sysmsg, token
     # 按议题、不按人:避免无说话人信息时套错人
     for token in ["按议题", "不要写", "不要按人"]:

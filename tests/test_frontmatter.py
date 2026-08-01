@@ -19,7 +19,7 @@ NOTES = """# 会议纪要
 ### 张主任
 - 汇报
 ## 关键实体 / 术语
-- **InfluxDB**：时序数据库
+- **InfluxDB**：时序数据库，用于存储时序指标
 - 联通
 - 飞客码（Figma）
 ## 未明确归属的要点
@@ -47,6 +47,7 @@ def test_extract_entities():
     process = load()
     ents = process._section_items(NOTES, "关键实体")
     assert "InfluxDB" in ents and "联通" in ents and "飞客码" in ents
+    assert "用于存储时序指标" not in ents  # 定义行的解释不能拆成术语混进来
 
 
 def test_missing_section_returns_empty():
