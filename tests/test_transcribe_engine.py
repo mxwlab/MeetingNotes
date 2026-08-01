@@ -33,8 +33,23 @@ def test_transcribe_qwen_calls_model():
     fake_model = mock.Mock()
     fake_model.transcribe.return_value = types.SimpleNamespace(text="  你好 ")
     with mock.patch.object(process, "_load_qwen", return_value=fake_model), \
-         mock.patch.object(process, "log"):
+         mock.patch.object(process, "log"), \
+         mock.patch.object(process, "pet_progress"):
         assert process.transcribe_qwen("x.wav") == "你好"
+
+
+def test_transcribe_qwen_reports_progress():
+    import time
+    process = load()
+    fake_model = mock.Mock()
+    fake_model.transcribe.side_effect = lambda p: (time.sleep(0.4)
+                                                   or types.SimpleNamespace(text="hi"))
+    with mock.patch.object(process, "_load_qwen", return_value=fake_model), \
+         mock.patch.object(process, "log"), \
+         mock.patch.object(process, "pet_progress") as pp:
+        out = process.transcribe_qwen("x.wav")
+    assert out == "hi"
+    assert pp.called  # 转录期间上报了进度
 
 
 if __name__ == "__main__":

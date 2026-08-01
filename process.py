@@ -157,9 +157,38 @@ def _clean_segments(raw_segs):
     return segs
 
 def transcribe_qwen(wav_path):
-    """Qwen3-ASR 整段转录（Metal），返回纯文本。"""
+    """Qwen3-ASR 整段转录（Metal），返回纯文本。
+
+    转录放后台线程，主线程按「已用时/预估总时」上报进度（qwen3-asr-mlx
+    无内部进度钩子）。单次 transcribe 调用，不影响质量，仅避免小猫/日志看着不动。"""
     log("转录中(Qwen3-ASR)...")
-    r = _load_qwen().transcribe(wav_path)
+    import threading, time
+    try:
+        with wave.open(wav_path) as w:
+            audio_sec = w.getnframes() / (w.getframerate() or 16000)
+    except Exception:
+        audio_sec = 0
+    est_total = max(30.0, audio_sec * 0.22)   # 经验实时率 ≈0.22（Metal）
+    box = {}
+    def _run():
+        try:
+            box["r"] = _load_qwen().transcribe(wav_path)
+        except Exception as e:
+            box["err"] = e
+    th = threading.Thread(target=_run, daemon=True)
+    t0 = time.time(); th.start()
+    last_log = 0.0
+    while th.is_alive():
+        elapsed = time.time() - t0
+        pet_progress(min(95, int(elapsed / est_total * 100)))
+        if elapsed - last_log >= 30:          # 日志每 ~30s 也动一下
+            log(f"转录中(Qwen3-ASR) {min(95, int(elapsed / est_total * 100))}%…")
+            last_log = elapsed
+        th.join(timeout=2)
+    if "err" in box:
+        raise box["err"]
+    pet_progress(100)
+    r = box.get("r")
     return (getattr(r, "text", "") or "").strip()
 
 def transcribe(wav_path):
