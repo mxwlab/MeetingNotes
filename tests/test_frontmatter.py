@@ -13,11 +13,8 @@ def load():
 NOTES = """# 会议纪要
 ## TL;DR
 一句话。
-## 参会人
+## 会中出现的人名（含被提及，未必都到场）
 张主任、清源、王某（前端）、其他
-## 按参会人归纳
-### 张主任
-- 汇报
 ## 关键实体 / 术语
 - **InfluxDB**：时序数据库，用于存储时序指标
 - 联通
@@ -29,16 +26,16 @@ NOTES = """# 会议纪要
 
 def test_extract_participants():
     process = load()
-    ppl = process._section_items(NOTES, "参会人")
+    ppl = process._section_items(NOTES, "会中出现的人名")
     assert "张主任" in ppl and "清源" in ppl and "王某" in ppl
     assert all("（" not in p for p in ppl)  # 去掉括号注释
 
 
 def test_extract_participants_skips_disclaimer_blockquote():
     process = load()
-    notes = ("# 会议纪要\n## 参会人\n> 注：人名由语音识别推断，可能有误。\n\n"
+    notes = ("# 会议纪要\n## 会中出现的人名\n> 注：人名由语音识别推断，可能有误。\n\n"
              "郭总、张清源\n## 关键实体 / 术语\n无\n")
-    ppl = process._section_items(notes, "参会人")
+    ppl = process._section_items(notes, "会中出现的人名")
     assert "郭总" in ppl and "张清源" in ppl
     assert "注" not in ppl and "可能有误。" not in ppl  # 免责声明不进 frontmatter
 
