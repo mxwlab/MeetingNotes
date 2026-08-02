@@ -18,7 +18,9 @@ def test_people_hint_and_injection():
         open(process._PEOPLE_PATH, "w", encoding="utf-8").write("张清源\n陈罡\n")
         hint = process._people_hint()
         assert "张清源" in hint and "陈罡" in hint
-        assert "已知参会人" in hint
+        # 人名库是"纠错参照",不能被当成本次参会人名单
+        assert "纠错" in hint
+        assert "不是本次参会人" in hint or "不一定在场" in hint
         cap = {}
 
         def fake_ask(system, user, max_tokens=4000):
