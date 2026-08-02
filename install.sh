@@ -39,7 +39,7 @@ require_file() {
   [[ -e "$BASE/$1" ]] || fail "项目文件缺失：$1"
 }
 
-step "1/8 环境预检"
+step "1/7 环境预检"
 os_name="${MEETINGNOTES_UNAME_S:-$(uname -s)}"
 arch="${MEETINGNOTES_UNAME_M:-$(uname -m)}"
 [[ "$os_name" == "Darwin" ]] || fail "仅支持 macOS，当前系统为 $os_name"
@@ -64,7 +64,6 @@ for required in \
   requirements.txt \
   watch_inbox.sh \
   watch_downloads.sh \
-  scripts/provision_fluidaudio.sh \
   scripts/provision_models.sh \
   scripts/gen_launchd.sh \
   scripts/attach_folder_action.sh \
@@ -77,41 +76,37 @@ if [[ "$DRY_RUN" == true ]]; then
   cat <<'EOF'
 
 Dry run：以下步骤将在正式安装时执行：
-  2/8 安装或确认 ffmpeg
-  3/8 创建 Python venv 并安装依赖
-  4/8 置备 FluidAudio CLI
-  5/8 下载并预热模型
-  6/8 写入本地配置（权限 600）
-  7/8 生成并加载路径唯一的 launchd 服务
-  8/8 编译并挂载 AirDrop Folder Action
+  2/7 安装或确认 ffmpeg
+  3/7 创建 Python venv 并安装依赖
+  4/7 下载 Qwen 主转录模型
+  5/7 写入本地配置（权限 600）
+  6/7 生成并加载路径唯一的 launchd 服务
+  7/7 编译并挂载 AirDrop Folder Action
 
 未写入任何安装状态。
 EOF
   exit 0
 fi
 
-step "2/8 系统依赖"
+step "2/7 系统依赖"
 if command -v ffmpeg >/dev/null; then
   echo "ffmpeg 已安装，跳过"
 else
   brew install ffmpeg || fail "Homebrew 安装 ffmpeg 失败"
 fi
 
-step "3/8 Python 环境"
+step "3/7 Python 环境"
 if [[ ! -x "$BASE/venv/bin/python" ]]; then
   "$PYTHON" -m venv "$BASE/venv" || fail "创建 Python venv 失败"
 fi
 "$BASE/venv/bin/python" -m pip install -r "$BASE/requirements.txt" \
   || fail "安装 Python 依赖失败"
 
-step "4/8 FluidAudio CLI"
-"$BASE/scripts/provision_fluidaudio.sh" || fail "FluidAudio CLI 置备失败"
-
-step "5/8 本地模型"
+step "4/7 本地模型"
 MEETINGNOTES_PYTHON="$BASE/venv/bin/python" "$BASE/scripts/provision_models.sh" \
-  || fail "模型下载或预热失败"
+  || fail "模型下载失败"
 
-step "6/8 本地配置"
+step "5/7 本地配置"
 CONFIG="$BASE/config.local.sh"
 if [[ -f "$CONFIG" ]]; then
   chmod 600 "$CONFIG"
@@ -143,7 +138,7 @@ fi
 
 mkdir -p "$BASE/inbox" "$BASE/output" "$BASE/done" "$BASE/logs"
 
-step "7/8 launchd 后台服务"
+step "6/7 launchd 后台服务"
 path_hash="$(printf '%s' "$BASE" | shasum | cut -c1-8)"
 label="com.meetingnotes.$path_hash"
 launch_agents="$HOME/Library/LaunchAgents"
@@ -155,7 +150,7 @@ launchctl bootout "gui/$(id -u)" "$plist" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$plist" || fail "加载 launchd 服务失败"
 echo "已加载 $label"
 
-step "8/8 AirDrop Folder Action"
+step "7/7 AirDrop Folder Action"
 if "$BASE/scripts/attach_folder_action.sh"; then
   echo "AirDrop 自动入库已启用"
 else

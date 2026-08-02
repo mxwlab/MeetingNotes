@@ -21,7 +21,7 @@ make_package() {
   echo venv > "$package_dir/venv/should-not-copy"
   echo 'export DEEPSEEK_API_KEY=must-not-copy' > "$package_dir/config.local.sh"
 
-  for helper in fetch_python.sh fetch_ffmpeg.sh provision_fluidaudio.sh provision_models.sh; do
+  for helper in fetch_python.sh fetch_ffmpeg.sh provision_models.sh; do
     cat > "$package_dir/scripts/$helper" <<EOF
 #!/bin/zsh
 print -r -- "$helper" >> "\${MEETINGNOTES_TEST_CALLS:?}"
@@ -95,7 +95,7 @@ canonical_target="${target:A}"
 [[ ! -e "$target/venv/should-not-copy" ]] || { echo "FAIL copied venv"; exit 1; }
 grep -q "test-key-one" "$target/config.local.sh" || { echo "FAIL config"; exit 1; }
 [[ "$(stat -f '%Lp' "$target/config.local.sh")" == 600 ]] || { echo "FAIL config mode"; exit 1; }
-for expected in fetch_python.sh fetch_ffmpeg.sh provision_fluidaudio.sh provision_models.sh attach; do
+for expected in fetch_python.sh fetch_ffmpeg.sh provision_models.sh attach; do
   grep -q "$expected" "$calls" || { echo "FAIL missing $expected"; exit 1; }
 done
 

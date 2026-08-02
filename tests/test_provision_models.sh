@@ -8,58 +8,39 @@ grep -Fq 'HF_ENDPOINT:-https://huggingface.co' \
 grep -Fq 'HF_HUB_DISABLE_XET:-1' \
   "$ROOT/scripts/provision_models.sh" \
   || { echo "FAIL Xet is not disabled by default"; exit 1; }
+# 预取的是 Qwen 主模型，不再是 whisper/FluidAudio。
+grep -Fq 'Qwen3-ASR-1.7B-8bit' "$ROOT/scripts/provision_models.sh" \
+  || { echo "FAIL Qwen primary model is not provisioned"; exit 1; }
+grep -Fqi 'fluidaudio' "$ROOT/scripts/provision_models.sh" \
+  && { echo "FAIL FluidAudio should no longer be referenced"; exit 1; } || true
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 project="$tmp/project"
-mkdir -p "$project/scripts" \
-         "$project/tests/fixtures" \
-         "$project/tools/FluidAudio/.build/release" \
-         "$project/mock-bin"
+mkdir -p "$project/scripts" "$project/mock-bin"
 cp "$ROOT/scripts/provision_models.sh" "$project/scripts/"
-cp "$ROOT/tests/fixtures/tiny.wav" "$project/tests/fixtures/"
 
+# 桩 python：把收到的 repo 参数与 HF_ENDPOINT 落到标记文件，供断言。
 cat > "$project/mock-bin/python" <<'EOF'
 #!/bin/zsh
 set -eu
-model_dir="$2"
-mkdir -p "$model_dir"
-print -r -- "$HF_ENDPOINT" > "$model_dir/hf_endpoint.txt"
-print -r -- "$3" > "$model_dir/repo.txt"
-touch "$model_dir/config.json" "$model_dir/weights.npz"
+marker="${MEETINGNOTES_FETCH_MARKER:?}"
+print -r -- "$HF_ENDPOINT" > "$marker.endpoint"
+# provision 传参为:  python - <repo>
+print -r -- "$2" > "$marker.repo"
 EOF
-cat > "$project/tools/FluidAudio/.build/release/fluidaudiocli" <<'EOF'
-#!/bin/zsh
-set -eu
-[[ "$1" == "process" ]] || exit 2
-while (( $# )); do
-  [[ "$1" == "--output" ]] && { print -r -- '{}' > "$2"; exit 0; }
-  shift
-done
-exit 3
-EOF
-chmod +x "$project/mock-bin/python" \
-         "$project/tools/FluidAudio/.build/release/fluidaudiocli"
+chmod +x "$project/mock-bin/python"
 
+marker="$tmp/fetch"
 HF_ENDPOINT="https://huggingface.co" \
+MEETINGNOTES_FETCH_MARKER="$marker" \
 MEETINGNOTES_PYTHON="$project/mock-bin/python" \
   "$project/scripts/provision_models.sh"
 
-model="$project/models/whisper-large-v3-mlx"
-[[ -f "$model/config.json" && -f "$model/weights.npz" ]] \
-  || { echo "FAIL whisper model"; exit 1; }
-[[ "$(<"$model/hf_endpoint.txt")" == "https://huggingface.co" ]] \
+[[ -f "$marker.repo" ]] || { echo "FAIL downloader was not invoked"; exit 1; }
+[[ "$(<"$marker.repo")" == "mlx-community/Qwen3-ASR-1.7B-8bit" ]] \
+  || { echo "FAIL wrong model repo: $(<"$marker.repo")"; exit 1; }
+[[ "$(<"$marker.endpoint")" == "https://huggingface.co" ]] \
   || { echo "FAIL HF endpoint override"; exit 1; }
-[[ "$(<"$model/repo.txt")" == "mlx-community/whisper-large-v3-mlx" ]] \
-  || { echo "FAIL model repo"; exit 1; }
-
-# A complete local model should make a second run skip the downloader.
-cat > "$project/mock-bin/python" <<'EOF'
-#!/bin/zsh
-echo "downloader should have been skipped" >&2
-exit 9
-EOF
-MEETINGNOTES_PYTHON="$project/mock-bin/python" \
-  "$project/scripts/provision_models.sh"
 
 echo "PASS"

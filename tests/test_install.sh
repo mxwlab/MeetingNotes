@@ -24,7 +24,7 @@ cp "$ROOT/requirements.txt" "$project/"
 cp "$ROOT/watch_inbox.sh" "$ROOT/watch_downloads.sh" "$project/"
 touch "$project/launchd/com.meetingnotes.plist.template"
 
-for helper in provision_fluidaudio.sh provision_models.sh attach_folder_action.sh; do
+for helper in provision_models.sh attach_folder_action.sh; do
   cat > "$project/scripts/$helper" <<EOF
 #!/bin/zsh
 touch "$tmp/$helper.called"
@@ -84,7 +84,6 @@ DEEPSEEK_API_KEY="test-key" OBSIDIAN_DIR="" \
   "$project/install.sh" --non-interactive
 
 [[ -x "$project/venv/bin/python" ]] || { echo "FAIL venv"; exit 1; }
-[[ -f "$tmp/provision_fluidaudio.sh.called" ]] || { echo "FAIL FluidAudio step"; exit 1; }
 [[ -f "$tmp/provision_models.sh.called" ]] || { echo "FAIL model step"; exit 1; }
 [[ -f "$tmp/attach_folder_action.sh.called" ]] || { echo "FAIL Folder Action step"; exit 1; }
 [[ -f "$project/config.local.sh" ]] || { echo "FAIL config"; exit 1; }

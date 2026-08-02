@@ -30,8 +30,7 @@ settle_project() {
     --exclude config.local.sh --exclude .pet_state
     --exclude inbox --exclude output --exclude done --exclude logs
     --exclude 录音 --exclude 纪要
-    --exclude models --exclude runtime --exclude venv
-    --exclude tools/FluidAudio
+    --exclude models --exclude runtime --exclude venv --exclude tools
   )
 
   command -v rsync >/dev/null || fail_early "系统缺少 rsync，无法安顿程序文件"
@@ -87,7 +86,7 @@ mkdir -p "$HOME/Desktop"
 ensure_symlink "$HOME/Desktop/MeetingNotes 录音" "$BASE/录音" "桌面录音入口"
 
 step_number=0
-total_steps=8
+total_steps=7
 step() {
   step_number=$((step_number + 1))
   echo
@@ -191,10 +190,7 @@ export MEETINGNOTES_PYTHON="$BASE/venv/bin/python"
 step "准备音频工具"
 run_logged "$BASE/scripts/fetch_ffmpeg.sh" || fail "ffmpeg 准备失败"
 
-step "准备说话人识别"
-run_logged "$BASE/scripts/provision_fluidaudio.sh" || fail "FluidAudio 准备失败"
-
-step "下载并预热语音模型"
+step "下载语音模型"
 run_logged "$BASE/scripts/provision_models.sh" || fail "语音模型准备失败"
 
 step "启动后台服务"

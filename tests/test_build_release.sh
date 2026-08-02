@@ -36,9 +36,12 @@ for required in \
   'MeetingNotes/开始使用.command' \
   'MeetingNotes/scripts/bootstrap_mac.sh' \
   'MeetingNotes/process.py' \
-  'MeetingNotes/licenses/FluidAudio-LICENSE'; do
+  'MeetingNotes/scripts/provision_models.sh'; do
   grep -Fqx "$required" "$listing" || { echo "FAIL missing $required"; exit 1; }
 done
+if grep -Fqi 'fluidaudio' "$listing"; then
+  echo "FAIL FluidAudio should no longer be packaged"; exit 1
+fi
 
 if grep -E '(^|/)(\.git|config\.local\.sh|venv|runtime|models|tools|inbox|output|done|logs|__pycache__)(/|$)' "$listing"; then
   echo "FAIL forbidden path in release"
