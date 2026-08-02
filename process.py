@@ -457,7 +457,7 @@ def save_to_obsidian(name, notes, audio_filename, transcript_md=""):
     body = notes.rstrip()
     if transcript_md.strip():
         body += "\n\n---\n\n## 会议整理稿\n\n" + transcript_md.strip() + "\n"
-    with open(md_path, "w") as f:
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(frontmatter + body)
     log(f"已写入 Obsidian: {md_path}")
     return True
