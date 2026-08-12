@@ -18,10 +18,35 @@ LOCK="$BASE/.dl.lock"
 # 只搬这些扩展名的文件。想让其它格式也自动搬，往这里加，例如：(m4a mp3 wav)
 EXTS=(m4a)
 EXPLICIT_EXTS=(m4a mp3 wav mp4 aac flac)
-STABILITY_INTERVAL="${MEETINGNOTES_STABILITY_INTERVAL:-2}"
+STABILITY_INTERVAL="${MEETINGNOTES_STABILITY_INTERVAL:-2}"  # 每次探测间隔(秒)
+STABLE_CHECKS="${MEETINGNOTES_STABLE_CHECKS:-3}"            # 大小需连续几次不变才算稳定
+MAX_WAIT="${MEETINGNOTES_MAX_WAIT:-600}"                    # 单个文件最多等多久(秒)
 
 mkdir -p "$INBOX" "$LOGDIR"
 log() { print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
+
+# 就地轮询等文件传输完成：非空且大小连续 STABLE_CHECKS 次不变才算稳定。
+# 关键：不再看到 0 字节/仍在增长就跳过、指望 launchd 再次触发——大文件在原地被
+# 填满往往不产生新的目录事件，跳过会让文件石沉大海（issue: 传完却不处理）。
+# 稳定返回 0；文件消失或超过 MAX_WAIT 仍未稳定返回 1。
+wait_until_stable() {
+  local f="$1" last=-1 size stable=0 waited=0 step="$STABILITY_INTERVAL"
+  [ "$step" -le 0 ] && step=1   # 保证计时推进，避免 interval=0 时死循环
+  while true; do
+    size=$(stat -f%z "$f" 2>/dev/null)
+    [ -z "$size" ] && return 1   # 文件被移走/删除
+    if [ "$size" -gt 0 ] && [ "$size" -eq "$last" ]; then
+      stable=$((stable + 1))
+      (( stable >= STABLE_CHECKS - 1 )) && return 0
+    else
+      stable=0
+    fi
+    last="$size"
+    (( waited >= MAX_WAIT )) && return 1
+    sleep "$STABILITY_INTERVAL"
+    waited=$((waited + step))
+  done
+}
 
 # 防并发
 if ! mkdir "$LOCK" 2>/dev/null; then exit 0; fi
@@ -44,19 +69,10 @@ for f in "${files[@]}"; do
   fi
   base="$(basename "$f")"
 
-  # 等文件写完（AirDrop/下载进行中）：不能是空文件，且大小连续三次不变。
-  # Finder 可能先出现 0 字节占位文件；此时搬走会让 inbox 过早开始转录。
-  s1=$(stat -f%z "$f" 2>/dev/null)
-  if [ -z "$s1" ] || [ "$s1" -eq 0 ]; then
-    log "文件为空，等待传输完成: $base"
-    continue
-  fi
-  sleep "$STABILITY_INTERVAL"
-  s2=$(stat -f%z "$f" 2>/dev/null)
-  sleep "$STABILITY_INTERVAL"
-  s3=$(stat -f%z "$f" 2>/dev/null)
-  if [ "$s1" != "$s2" ] || [ "$s2" != "$s3" ]; then
-    log "文件仍在传输，本次跳过（传完会再次触发）: $base"
+  # 等文件写完（AirDrop/微信/QQ 传输进行中）：Finder 可能先出现 0 字节占位文件，
+  # 内容随后在原地写满。就地轮询等到稳定再搬，单次触发即可兜住整个传输过程。
+  if ! wait_until_stable "$f"; then
+    [ -f "$f" ] && log "等待传输超时($MAX_WAIT 秒)，本次跳过: $base"
     continue
   fi
 
