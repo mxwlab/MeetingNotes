@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, os, datetime, shutil, subprocess, json, re, string, wave, math
+import sys, os, datetime, shutil, subprocess, json, re, string, wave, math, tempfile, threading, time
 from collections import Counter
 
 # 国内直连 huggingface.co 不稳定，默认走镜像（已设 HF_ENDPOINT 时不覆盖）
@@ -130,6 +130,13 @@ def pet_launch(name):
     except Exception:
         pass
 
+def pet_stop():
+    """关掉桌面小猫（中止/失败/不支持格式时收尾，别留一只僵尸猫）。"""
+    try:
+        subprocess.run(["pkill", "-f", PET_SCRIPT], capture_output=True)
+    except Exception:
+        pass
+
 class _ProgressTqdm:
     """替换 mlx_whisper 内部的 tqdm，按帧数上报真实转录进度给小猫。
     只需支持它用到的：作为上下文管理器 + update(delta)。任何异常都吞掉，绝不影响转录。"""
@@ -215,10 +222,23 @@ def transcribe_whisper(wav_path):
     return text or (result.get("text") or "").strip()
 
 def _ask(system, user, max_tokens=4000):
-    resp = client.chat.completions.create(
-        model=LLM_MODEL, temperature=0.3, max_tokens=max_tokens,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-    )
+    # LLM 调用是阻塞的，慢模型下可能几分钟无输出，用户会以为卡死(见测试反馈)。
+    # 起个心跳线程，每 30 秒报一次“还在等、已等了多久”，让日志看着有生命体征。
+    interval = float(os.environ.get("MEETINGNOTES_HEARTBEAT_SECS", "30"))
+    stop = threading.Event()
+    started = time.monotonic()
+    def _heartbeat():
+        while not stop.wait(interval):
+            log(f"  …仍在等待模型响应（已 {int(time.monotonic() - started)}s，慢模型属正常）")
+    hb = threading.Thread(target=_heartbeat, daemon=True)
+    hb.start()
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL, temperature=0.3, max_tokens=max_tokens,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        )
+    finally:
+        stop.set()
     c = resp.choices[0].message.content or ""
     return re.sub(r"<think>.*?</think>", "", c, flags=re.S).strip()
 
@@ -355,6 +375,8 @@ def _clean_notes(notes):
         text = text[idx:]
     return text.strip() + "\n"
 
+SKIPPED = os.path.join(BASE, "skipped")   # 无法解码的文件挪到这里，避免每次触发反复重试/重复打扰
+
 def main(audio_path):
     if not os.path.exists(audio_path):
         log(f"文件不存在: {audio_path}"); return
@@ -364,41 +386,56 @@ def main(audio_path):
     # 开始/进度靠桌面小猫显示，不再发系统通知（只在完成/失败时通知，兜底离开工位的情况）
     pet_launch(name)
 
-    # 转 16k 单声道 wav
-    wav = os.path.join(OUTPUT, f".tmp_{stamp}.wav")
-    subprocess.run([FFMPEG, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav],
-                   check=True, capture_output=True)
-
-    transcript = transcribe(wav)                     # Qwen 主 / whisper 兜底(纯文本)
-    pet_set("summarize", name, 10)
-
-    raw_path = os.path.join(OUTPUT, f"{stamp}_{name}_转录.txt")
-    with open(raw_path, "w", encoding="utf-8") as f:
-        f.write(transcript)
-
-    tidy = make_segmented_transcript(transcript)     # 分段整理稿
-    tidy_path = os.path.join(OUTPUT, f"{stamp}_{name}_整理稿.md")
-    with open(tidy_path, "w", encoding="utf-8") as f:
-        f.write(tidy + "\n")
-
-    notes = summarize_minutes(transcript)             # 按议题纪要
-    out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(notes)
-    update_glossary(_section_items(notes, "关键实体"))  # 关键实体并入术语库,反哺后续转录纠错
-    log(f"完成: {out_path}")
-    pet_summary_progress(98)
-
-    saved = save_to_obsidian(name, notes, os.path.basename(audio_path), transcript_md=tidy)
-    pet_summary_progress(100)
-
+    # 临时 wav 放系统临时目录，别污染用户的「纪要」文件夹（output/）；无论成功还是中途
+    # 异常，finally 都会清掉整个临时目录，不再有 .tmp_*.wav 残留。
+    tmp_dir = tempfile.mkdtemp(prefix="meetingnotes_")
+    wav = os.path.join(tmp_dir, f"{stamp}.wav")
     try:
-        os.remove(wav)
-    except OSError:
-        pass
-    shutil.move(audio_path, os.path.join(DONE, os.path.basename(audio_path)))
-    notify(f"✅ 纪要已生成{'并存入 Obsidian' if saved else ''}：{name}")
-    pet_set("done", name)
+        # 转 16k 单声道 wav。任何文件先交给 ffmpeg 试解码：能解就处理（自动支持
+        # mp4/mov/aiff/opus 等更多格式），解不了就当作「不是受支持的音频」——明确告知
+        # 并挪进 skipped/，而不是像以前那样无声躺在 inbox 让人以为“拖进去没反应”。
+        try:
+            subprocess.run([FFMPEG, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav],
+                           check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            log(f"无法解码为音频，可能不是受支持的音视频文件: {name}")
+            pet_stop()
+            notify(f"⚠️ 无法识别为音频，未处理：{name}（支持常见音视频，如 m4a/mp3/wav/mp4/mov 等）")
+            os.makedirs(SKIPPED, exist_ok=True)
+            try:
+                shutil.move(audio_path, os.path.join(SKIPPED, os.path.basename(audio_path)))
+            except OSError:
+                pass
+            return
+
+        transcript = transcribe(wav)                     # Qwen 主 / whisper 兜底(纯文本)
+        pet_set("summarize", name, 10)
+
+        raw_path = os.path.join(OUTPUT, f"{stamp}_{name}_转录.txt")
+        with open(raw_path, "w", encoding="utf-8") as f:
+            f.write(transcript)
+
+        tidy = make_segmented_transcript(transcript)     # 分段整理稿
+        tidy_path = os.path.join(OUTPUT, f"{stamp}_{name}_整理稿.md")
+        with open(tidy_path, "w", encoding="utf-8") as f:
+            f.write(tidy + "\n")
+
+        notes = summarize_minutes(transcript)             # 按议题纪要
+        out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(notes)
+        update_glossary(_section_items(notes, "关键实体"))  # 关键实体并入术语库,反哺后续转录纠错
+        log(f"完成: {out_path}")
+        pet_summary_progress(98)
+
+        saved = save_to_obsidian(name, notes, os.path.basename(audio_path), transcript_md=tidy)
+        pet_summary_progress(100)
+
+        shutil.move(audio_path, os.path.join(DONE, os.path.basename(audio_path)))
+        notify(f"✅ 纪要已生成{'并存入 Obsidian' if saved else ''}：{name}")
+        pet_set("done", name)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _section_items(notes, header):

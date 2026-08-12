@@ -41,9 +41,12 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
+# 不再用扩展名白名单挑文件——那会让 .aiff/.mov/.opus/微信语音等被无声忽略、
+# 「拖进去没反应」无从排查。改为任何非隐藏普通文件都交给 process.py，由内置 ffmpeg
+# 试解码：能解就处理（自动支持更多音视频格式），解不了会明确记日志+弹通知并挪走。
+# 隐藏文件（.gitkeep / .watch.lock 等）zsh 默认不被 * 匹配，自动跳过。
 processed=0
-for f in "$INBOX"/*.m4a "$INBOX"/*.mp3 "$INBOX"/*.wav "$INBOX"/*.mp4 \
-         "$INBOX"/*.aac "$INBOX"/*.flac; do
+for f in "$INBOX"/*; do
   [ -f "$f" ] || continue
   base="$(basename "$f")"
 

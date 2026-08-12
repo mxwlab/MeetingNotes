@@ -23,6 +23,7 @@ config.local.sh
 inbox/*
 output/*
 done/*
+skipped/*
 !inbox/.gitkeep
 !output/.gitkeep
 !done/.gitkeep
