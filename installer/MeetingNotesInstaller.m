@@ -45,7 +45,14 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     if([preview isEqual:@"installing"]) [self showInstalling];
     if([preview isEqual:@"complete"]) [self showComplete];
 }
-- (void)header { [self place:[self label:@"🐱  MeetingNotes" size:15 weight:NSFontWeightMedium color:NSColor.labelColor] x:28 y:566 w:560 h:26]; }
+- (NSImageView *)appIcon:(CGFloat)size {
+    NSImageView *view=[[NSImageView alloc] initWithFrame:NSMakeRect(0,0,size,size)];
+    view.image=NSApp.applicationIconImage; view.imageScaling=NSImageScaleProportionallyUpOrDown; return view;
+}
+- (void)header {
+    [self place:[self appIcon:30] x:28 y:560 w:30 h:30];
+    [self place:[self label:@"MeetingNotes" size:15 weight:NSFontWeightMedium color:NSColor.labelColor] x:68 y:566 w:490 h:22];
+}
 - (void)showReady {
     [self reset]; [self header];
     [self place:[self label:@"准备安装 MeetingNotes" size:26 weight:NSFontWeightSemibold color:NSColor.labelColor] x:40 y:500 w:540 h:36];
@@ -110,7 +117,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 }
 - (void)showDetails:(id)sender { NSAlert *a=[NSAlert new]; a.messageText=@"安装详细信息"; a.informativeText=self.details.length?self.details:@"暂时没有详细信息。"; [a addButtonWithTitle:@"关闭"]; [a runModal]; }
 - (void)showComplete {
-    [self reset]; [self place:[self label:@"🐱" size:42 weight:NSFontWeightRegular color:NSColor.labelColor] x:274 y:492 w:72 h:58];
+    [self reset]; [self place:[self appIcon:72] x:274 y:482 w:72 h:72];
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
     NSTextField *c=[self label:@"把一段录音拖入“MeetingNotes 录音”，小猫会显示处理进度，完成后纪要会自动生成。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:78 y:380 w:464 h:52];
     NSString *r=@"✓   菜单栏小猫已启动\n      以后登录 Mac 时会自动出现\n\n✓   录音文件夹已放到桌面\n      把录音拖进去即可开始\n\n✓   AirDrop 自动处理已启用\n      从 iPhone 接收录音后会自动处理"; [self place:[self label:r size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:110 y:184 w:400 h:175];

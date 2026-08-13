@@ -24,6 +24,8 @@ package="$stage/MeetingNotes"
 
 files=(
   "开始使用.command"
+  "assets/MeetingNotes.icns"
+  "assets/meetingnotes-icon.png"
   "README.md"
   "NOTICE"
   "config.example.sh"
