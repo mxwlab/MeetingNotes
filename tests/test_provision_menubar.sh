@@ -40,6 +40,8 @@ plutil -lint "$plist" >/dev/null || { echo "FAIL plist invalid"; exit 1; }
 grep -Fq "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" "$plist" \
   || { echo "FAIL app path"; exit 1; }
 grep -Fq "<string>${project:A}</string>" "$plist" || { echo "FAIL base path"; exit 1; }
+grep -Fq '<string>com.moxiuwen.meetingnotes.menubar</string>' "$plist" \
+  || { echo "FAIL default label"; exit 1; }
 ! grep -Fq '/Users/moxiuwen/workspace/MeetingNotes' "$plist" \
   || { echo "FAIL hard-coded developer path"; exit 1; }
 [[ "$(grep -c '^bootstrap ' "$calls")" == 2 ]] \
@@ -51,5 +53,15 @@ MEETINGNOTES_TEST_CALLS="$calls" MEETINGNOTES_TEST_BOOTSTRAP_ONCE="$tmp/once" \
 [[ -x "$app" ]] || { echo "FAIL app missing after rerun"; exit 1; }
 [[ "$(grep -c '^bootstrap ' "$calls")" == 3 ]] \
   || { echo "FAIL idempotent reload"; exit 1; }
+
+isolated_label="com.moxiuwen.meetingnotes.menubar.acceptance"
+PATH="$tmp/mock-bin:/usr/bin:/bin" HOME="$home" \
+MEETINGNOTES_MENUBAR_LABEL="$isolated_label" \
+MEETINGNOTES_TEST_CALLS="$calls" MEETINGNOTES_TEST_BOOTSTRAP_ONCE="$tmp/once" \
+  "$project/scripts/install_menubar_autostart.sh" >/dev/null
+isolated_plist="$home/Library/LaunchAgents/$isolated_label.plist"
+[[ -f "$isolated_plist" ]] || { echo "FAIL isolated plist missing"; exit 1; }
+grep -Fq "<string>$isolated_label</string>" "$isolated_plist" \
+  || { echo "FAIL isolated label"; exit 1; }
 
 echo PASS

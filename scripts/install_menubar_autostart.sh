@@ -3,11 +3,15 @@ set -euo pipefail
 
 BASE="${0:A:h:h}"
 SOURCE="$BASE/launchd/com.moxiuwen.meetingnotes.menubar.plist.template"
-TARGET="$HOME/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
+LABEL="${MEETINGNOTES_MENUBAR_LABEL:-com.moxiuwen.meetingnotes.menubar}"
+[[ "$LABEL" =~ '^[A-Za-z0-9._-]+$' ]] || {
+  print -u2 "菜单栏服务名包含无效字符：$LABEL"
+  exit 2
+}
+TARGET="$HOME/Library/LaunchAgents/$LABEL.plist"
 APP_EXECUTABLE="$BASE/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes"
 LOG_DIR="$BASE/logs"
 DOMAIN="gui/$(id -u)"
-LABEL="com.moxiuwen.meetingnotes.menubar"
 
 if [[ ! -x "$APP_EXECUTABLE" ]]; then
   print -u2 "未找到菜单栏 App，请先运行：./venv-ui/bin/python setup_ui.py py2app -A"
@@ -16,6 +20,7 @@ fi
 
 mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
 sed \
+  -e "s|__MENUBAR_LABEL__|$LABEL|g" \
   -e "s|__APP_EXECUTABLE__|$APP_EXECUTABLE|g" \
   -e "s|__MEETINGNOTES_BASE__|$BASE|g" \
   -e "s|__LOG_DIR__|$LOG_DIR|g" \
