@@ -3,6 +3,16 @@
 BASE="${0:A:h}"
 xattr -dr com.apple.quarantine "$BASE" 2>/dev/null || true
 
+INSTALLER="$BASE/MeetingNotes 安装器.app"
+if [[ -d "$INSTALLER" ]]; then
+  open "$INSTALLER"
+  rc=$?
+  if (( rc == 0 )); then
+    exit 0
+  fi
+  echo "图形安装助手暂时无法启动，正在切换到兼容安装模式…"
+fi
+
 "$BASE/scripts/bootstrap_mac.sh"
 rc=$?   # 注意：zsh 里 status 是只读内置变量($? 的别名)，不能赋值，故用 rc
 if (( rc == 0 )); then

@@ -13,6 +13,7 @@ mkdir -p "$package/scripts" "$package/launchd" "$home/Desktop" \
   "$tmp/mock-bin"
 
 cp "$ROOT/scripts/bootstrap_mac.sh" "$package/scripts/"
+cp "$ROOT/scripts/installer_progress.sh" "$package/scripts/"
 cp "$ROOT/scripts/prompt_deepseek_key.applescript" "$package/scripts/"
 touch "$package/process.py" "$package/watch_inbox.sh" "$package/watch_downloads.sh" \
   "$package/requirements.txt"

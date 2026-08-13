@@ -2,6 +2,7 @@
 set -eu
 
 SOURCE_BASE="${0:A:h:h}"
+source "$SOURCE_BASE/scripts/installer_progress.sh"
 INSTALL_DIR="${MEETINGNOTES_INSTALL_DIR:-$HOME/MeetingNotes}"
 os_name="${MEETINGNOTES_UNAME_S:-$(uname -s)}"
 arch="${MEETINGNOTES_UNAME_M:-$(uname -m)}"
@@ -10,6 +11,7 @@ fail_early() {
   echo
   echo "安装没有完成：$1" >&2
   echo "修复后重新双击“开始使用.command”即可继续。" >&2
+  mn_progress error preflight 0 "无法开始安装" "$1"
   exit 1
 }
 
@@ -102,11 +104,44 @@ fail() {
   echo "安装没有完成：$message" >&2
   echo "重新双击即可从已完成的位置继续。" >&2
   echo "详细日志：$LOG" >&2
+  mn_progress error install 0 "安装没有完成" "$message"
   exit 1
 }
 
 run_logged() {
   "$@" >> "$LOG" 2>&1
+}
+
+run_model_with_progress() {
+  if [[ "${MEETINGNOTES_PROGRESS_JSON:-false}" != true ]]; then
+    run_logged "$BASE/scripts/provision_models.sh"
+    return
+  fi
+
+  local expected_bytes="${QWEN_EXPECTED_BYTES:-2362232012}"
+  local model_dir="$BASE/models/qwen3-asr-1.7b-8bit"
+  local started now elapsed downloaded rate remaining percent detail pid rc
+  started="$(date +%s)"
+  run_logged "$BASE/scripts/provision_models.sh" &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    downloaded=$(( $(du -sk "$model_dir" 2>/dev/null | awk '{print $1}' || echo 0) * 1024 ))
+    (( downloaded > expected_bytes )) && downloaded="$expected_bytes"
+    percent=$((39 + downloaded * 47 / expected_bytes))
+    now="$(date +%s)"; elapsed=$((now - started))
+    detail="已下载 $((downloaded / 1024 / 1024)) MB / 约 2.2 GB"
+    if (( elapsed >= 5 && downloaded > 0 )); then
+      rate=$((downloaded / elapsed))
+      if (( rate > 0 )); then
+        remaining=$(((expected_bytes - downloaded) / rate / 60 + 1))
+        detail="$detail · 预计还需约 ${remaining} 分钟"
+      fi
+    fi
+    mn_progress progress model "$percent" "正在下载本机语音模型" "$detail"
+    sleep 2
+  done
+  wait "$pid" || rc=$?
+  return "${rc:-0}"
 }
 
 validate_deepseek_key() {
@@ -150,15 +185,21 @@ write_config() {
 }
 
 step "确认安装位置"
+mn_progress step_start preflight 2 "检查这台 Mac" "确认系统、芯片和安装位置"
 echo "程序位置：$BASE"
+mn_progress step_done preflight 3 "这台 Mac 可以安装" "检查完成"
 
 step "设置 DeepSeek"
+mn_progress step_start provider 4 "连接 AI 服务" "验证并安全保存设置"
 if [[ -f "$BASE/config.local.sh" ]]; then
   chmod 600 "$BASE/config.local.sh"
   echo "已有设置，安全保留"
 else
   key=""
-  if [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" == true ]]; then
+  if [[ -n "${MEETINGNOTES_INSTALLER_KEY:-}" ]]; then
+    key="$MEETINGNOTES_INSTALLER_KEY"
+    validate_deepseek_key "$key" || fail "$VALIDATION_MESSAGE"
+  elif [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" == true ]]; then
     key="${DEEPSEEK_API_KEY:-}"
     [[ -n "$key" ]] || fail "测试模式缺少 DEEPSEEK_API_KEY"
     validate_deepseek_key "$key" || fail "测试 key 验证失败"
@@ -181,20 +222,29 @@ else
   fi
   write_config "$key"
   unset key
+  unset MEETINGNOTES_INSTALLER_KEY
   echo "DeepSeek 设置验证通过"
 fi
+mn_progress step_done provider 7 "AI 服务已连接" "设置只保存在这台 Mac"
 
 step "准备 Python"
+mn_progress step_start python 8 "准备运行环境" "首次安装通常需要 1–3 分钟"
 run_logged "$BASE/scripts/fetch_python.sh" || fail "Python 运行环境准备失败"
+mn_progress step_done python 32 "运行环境已准备好" "Python 与处理依赖安装完成"
 export MEETINGNOTES_PYTHON="$BASE/venv/bin/python"
 
 step "准备音频工具"
+mn_progress step_start ffmpeg 33 "安装音频工具" "用于读取常见录音和视频格式"
 run_logged "$BASE/scripts/fetch_ffmpeg.sh" || fail "ffmpeg 准备失败"
+mn_progress step_done ffmpeg 38 "音频工具已安装" "常见音视频格式已支持"
 
 step "下载语音模型"
-run_logged "$BASE/scripts/provision_models.sh" || fail "语音模型准备失败"
+mn_progress step_start model 39 "下载本机语音模型" "约 2.2 GB，通常需要 2–8 分钟"
+run_model_with_progress || fail "语音模型准备失败"
+mn_progress step_done model 86 "语音模型已准备好" "录音会在本机完成识别"
 
 step "启动后台服务"
+mn_progress step_start service 87 "启动后台服务" "以后拖入录音即可自动处理"
 path_hash="$(printf '%s' "$BASE" | shasum | cut -c1-8)"
 label="com.meetingnotes.$path_hash"
 launch_agents="$HOME/Library/LaunchAgents"
@@ -206,16 +256,21 @@ plutil -lint "$plist" >> "$LOG" 2>&1 || fail "后台服务配置无效"
 launchctl bootout "gui/$(id -u)" "$plist" >> "$LOG" 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$plist" >> "$LOG" 2>&1 \
   || fail "启动后台服务失败"
+mn_progress step_done service 91 "后台服务已启动" "正在等待新录音"
 
 step "安装菜单栏"
+mn_progress step_start menubar 92 "安装菜单栏小猫" "用于显示转录进度和完成提醒"
 run_logged "$BASE/scripts/provision_menubar.sh" \
   || fail "菜单栏 App 安装失败"
+mn_progress step_done menubar 98 "菜单栏小猫已启动" "以后登录时会自动出现"
 
 step "启用 AirDrop 自动入库"
+mn_progress step_start airdrop 99 "启用 AirDrop 自动处理" "从 iPhone 接收录音后自动开始"
 if ! run_logged "$BASE/scripts/attach_folder_action.sh"; then
   echo "AirDrop 自动入库暂未启用；仍可把录音放入 $BASE/inbox"
   print -r -- "Folder Action attach failed; manual inbox remains available." >> "$LOG"
 fi
+mn_progress complete complete 100 "MeetingNotes 已准备好" "现在可以放入第一段录音"
 
 echo
 echo "MeetingNotes 安装完成。"

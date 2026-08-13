@@ -32,6 +32,10 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         if not mode & stat.S_IXUSR:
             raise SystemExit(f"not executable: {name}")
 PY
+grep -Fqx 'MeetingNotes/MeetingNotes 安装器.app/Contents/Info.plist' "$listing" \
+  || { echo "FAIL missing installer plist"; exit 1; }
+grep -Fqx 'MeetingNotes/MeetingNotes 安装器.app/Contents/MacOS/MeetingNotes Installer' "$listing" \
+  || { echo "FAIL missing installer executable"; exit 1; }
 for required in \
   'MeetingNotes/开始使用.command' \
   'MeetingNotes/scripts/bootstrap_mac.sh' \
@@ -87,6 +91,8 @@ if command -v ditto >/dev/null; then
     || { echo "FAIL macOS native extraction dropped launcher executable mode"; exit 1; }
   [[ -x "$native_unpack/MeetingNotes/scripts/bootstrap_mac.sh" ]] \
     || { echo "FAIL macOS native extraction dropped bootstrap executable mode"; exit 1; }
+  [[ -x "$native_unpack/MeetingNotes/MeetingNotes 安装器.app/Contents/MacOS/MeetingNotes Installer" ]] \
+    || { echo "FAIL macOS native extraction dropped installer executable mode"; exit 1; }
 fi
 
 echo "PASS"
