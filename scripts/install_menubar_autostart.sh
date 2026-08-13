@@ -9,7 +9,7 @@ LABEL="${MEETINGNOTES_MENUBAR_LABEL:-com.moxiuwen.meetingnotes.menubar}"
   exit 2
 }
 TARGET="$HOME/Library/LaunchAgents/$LABEL.plist"
-APP_EXECUTABLE="$BASE/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes"
+APP_EXECUTABLE="$BASE/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏"
 LOG_DIR="$BASE/logs"
 DOMAIN="gui/$(id -u)"
 

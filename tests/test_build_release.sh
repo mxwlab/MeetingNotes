@@ -45,7 +45,9 @@ for required in \
   'MeetingNotes/scripts/install_menubar_autostart.sh' \
   'MeetingNotes/requirements-ui.txt' \
   'MeetingNotes/setup_ui.py' \
+  'MeetingNotes/setup_main.py' \
   'MeetingNotes/ui/menubar.py' \
+  'MeetingNotes/ui/main.py' \
   'MeetingNotes/ui/pet_status.py' \
   'MeetingNotes/ui/provider_config.py' \
   'MeetingNotes/launchd/com.moxiuwen.meetingnotes.menubar.plist.template'; do

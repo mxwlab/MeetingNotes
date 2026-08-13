@@ -19,12 +19,22 @@ fi
 
 (
   cd "$BASE"
-  "$UI_PYTHON" setup_ui.py py2app -A
+  "$UI_PYTHON" setup_ui.py py2app -A --dist-dir "$BASE/dist-menubar"
+  "$UI_PYTHON" setup_main.py py2app -A --dist-dir "$BASE/dist"
 )
 
-[[ -x "$BASE/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || {
+[[ -x "$BASE/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" ]] || {
   echo "菜单栏 App 构建失败" >&2
   exit 1
 }
+[[ -x "$BASE/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || {
+  echo "主界面 App 构建失败" >&2
+  exit 1
+}
+
+APPLICATIONS="$HOME/Applications"
+mkdir -p "$APPLICATIONS"
+rm -rf "$APPLICATIONS/MeetingNotes.app"
+cp -R "$BASE/dist/MeetingNotes.app" "$APPLICATIONS/MeetingNotes.app"
 
 "$BASE/scripts/install_menubar_autostart.sh"

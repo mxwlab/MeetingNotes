@@ -32,6 +32,7 @@ files=(
   "requirements.txt"
   "requirements-ui.txt"
   "setup_ui.py"
+  "setup_main.py"
   "process.py"
   "pet.py"
   "watch_inbox.sh"
@@ -57,6 +58,7 @@ files=(
   "scripts/installer_progress.sh"
   "ui/__init__.py"
   "ui/menubar.py"
+  "ui/main.py"
   "ui/pet_status.py"
   "ui/provider_config.py"
 )
