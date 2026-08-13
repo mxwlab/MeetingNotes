@@ -11,6 +11,11 @@ def load():
     return importlib.import_module("process")
 
 
+def test_qwen_model_uses_project_local_snapshot():
+    process = load()
+    assert process._QWEN_MODEL_ID == str(ROOT / "models" / "qwen3-asr-1.7b-8bit")
+
+
 def test_transcribe_prefers_qwen():
     process = load()
     with mock.patch.object(process, "transcribe_qwen", return_value="QWEN文本") as q, \

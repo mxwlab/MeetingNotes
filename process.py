@@ -33,7 +33,9 @@ MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weigh
 
 # 主转录：Qwen3-ASR 1.7B 8-bit（mlx-qwen3-asr，Metal）。实测约 2.5x 于 bf16、
 # 质量相当甚至更好（英文专名如 Figma 更准），故用 8-bit 作主引擎。
-_QWEN_MODEL_ID = "mlx-community/Qwen3-ASR-1.7B-8bit"
+_QWEN_MODEL_ID = os.environ.get(
+    "QWEN_MODEL_PATH", os.path.join(BASE, "models", "qwen3-asr-1.7b-8bit")
+)
 _qwen_model = None
 def _load_qwen():
     global _qwen_model

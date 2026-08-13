@@ -3,5 +3,5 @@ mlx-whisper==0.4.3
 openai==2.48.0
 
 # Qwen3-ASR 主转录（Apple Silicon / Metal，需要较新 mlx；本阶段不再支持老 macOS）。
-mlx-qwen3-asr>=0.3.5
-mlx>=0.31
+mlx-qwen3-asr==0.3.5
+mlx==0.32.0
