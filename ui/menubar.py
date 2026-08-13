@@ -5,6 +5,17 @@ import sys
 
 import rumps
 
+
+def _modern_status_bar_title(nsapp):
+    """兼容新版 macOS：NSStatusItem 标题需通过 button 设置。"""
+    title = nsapp._app["_title"] or nsapp._app["_name"]
+    button = nsapp.nsstatusitem.button()
+    if button is not None:
+        button.setTitle_(title)
+
+
+rumps.rumps.NSApp.setStatusBarTitle = _modern_status_bar_title
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)

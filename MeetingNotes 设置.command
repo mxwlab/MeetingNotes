@@ -1,7 +1,5 @@
 #!/bin/zsh
-# 双击启动 MeetingNotes 菜单栏 app（状态/服务设置/失败提醒）。
+# 兼容入口：启动 py2app 构建的独立 macOS 菜单栏应用。
 BASE="${0:A:h}"
-mkdir -p "$BASE/logs"
-nohup "$BASE/venv-ui/bin/python" "$BASE/ui/menubar.py" \
-  >>"$BASE/logs/menubar.log" 2>&1 &!
+open "$BASE/dist/MeetingNotes.app"
 exit 0
