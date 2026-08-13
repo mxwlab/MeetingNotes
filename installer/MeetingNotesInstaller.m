@@ -45,7 +45,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (void)reset { for (NSView *v in self.content.subviews.copy) [v removeFromSuperview]; }
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
     self.buffer = [NSMutableString string]; self.details = [NSMutableString string]; self.completed = [NSMutableSet set];
-    self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,620,620) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
+    self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,620,650) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
     self.window.title = @"MeetingNotes 安装助手"; self.window.releasedWhenClosed = NO;
     self.content = [NSView new]; self.window.contentView = self.content; [self.window center];
     [self showReady]; [self.window makeKeyAndOrderFront:nil]; [self.window orderFrontRegardless]; [NSApp activateIgnoringOtherApps:YES];
@@ -58,40 +58,40 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     view.image=NSApp.applicationIconImage; view.imageScaling=NSImageScaleProportionallyUpOrDown; return view;
 }
 - (void)header {
-    [self place:[self appIcon:30] x:28 y:560 w:30 h:30];
-    [self place:[self label:@"MeetingNotes" size:15 weight:NSFontWeightMedium color:NSColor.labelColor] x:68 y:566 w:490 h:22];
+    [self place:[self appIcon:30] x:28 y:590 w:30 h:30];
+    [self place:[self label:@"MeetingNotes" size:15 weight:NSFontWeightMedium color:NSColor.labelColor] x:68 y:596 w:490 h:22];
 }
 - (void)showReady {
     [self reset]; [self header];
-    [self place:[self label:@"准备安装 MeetingNotes" size:26 weight:NSFontWeightSemibold color:NSColor.labelColor] x:40 y:500 w:540 h:36];
-    [self place:[self label:@"把会议录音变成清晰、可搜索的纪要。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor] x:40 y:466 w:540 h:24];
+    [self place:[self label:@"准备安装 MeetingNotes" size:26 weight:NSFontWeightSemibold color:NSColor.labelColor] x:40 y:530 w:540 h:36];
+    [self place:[self label:@"把会议录音变成清晰、可搜索的纪要。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor] x:40 y:496 w:540 h:24];
     NSArray *facts=@[@"◷   大约 5–10 分钟\n      取决于网络速度",@"⇩   需要下载约 3 GB\n      用于本机语音识别",@"✓   原始录音不会上传\n      只有转录文字发送给 AI 整理"];
-    for(NSUInteger i=0;i<facts.count;i++) [self place:[self label:facts[i] size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:48 y:382-i*70 w:510 h:55];
-    [self place:[self label:@"AI 服务" size:13 weight:NSFontWeightMedium color:NSColor.labelColor] x:40 y:216 w:120 h:20];
+    for(NSUInteger i=0;i<facts.count;i++) [self place:[self label:facts[i] size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:48 y:412-i*70 w:510 h:55];
+    [self place:[self label:@"AI 服务" size:13 weight:NSFontWeightMedium color:NSColor.labelColor] x:40 y:246 w:120 h:20];
     self.deepseekCard=[self providerCard:@"DeepSeek\n推荐 · 开箱即用" tag:0];
     self.customCard=[self providerCard:@"其他服务\nOpenAI 兼容" tag:1];
-    [self place:self.deepseekCard x:40 y:174 w:260 h:52];
-    [self place:self.customCard x:318 y:174 w:260 h:52];
+    [self place:self.deepseekCard x:40 y:164 w:260 h:52];
+    [self place:self.customCard x:318 y:164 w:260 h:52];
     self.customProviderSelected=NO; [self updateProviderCards];
     self.keyLabel=[self label:@"DeepSeek API Key" size:13 weight:NSFontWeightMedium color:NSColor.labelColor];
-    [self place:self.keyLabel x:40 y:150 w:300 h:20];
+    [self place:self.keyLabel x:40 y:132 w:300 h:20];
     self.keyField=[NSSecureTextField new]; self.keyField.placeholderString=@"粘贴你的 API Key"; self.keyField.font=[NSFont systemFontOfSize:14];
-    [self place:self.keyField x:40 y:112 w:410 h:28];
+    [self place:self.keyField x:40 y:96 w:410 h:28];
     self.getKeyButton=[self button:@"获取 Key" action:@selector(openKeyPage:) primary:NO];
-    [self place:self.getKeyButton x:462 y:110 w:116 h:31];
+    [self place:self.getKeyButton x:462 y:94 w:116 h:31];
     self.keyHelp=[self label:@"推荐首次使用；设置只保存在这台 Mac。" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
-    [self place:self.keyHelp x:40 y:84 w:540 h:20];
+    [self place:self.keyHelp x:40 y:70 w:540 h:20];
     self.baseURLField=[NSTextField new]; self.baseURLField.placeholderString=@"服务地址，例如 https://api.example.com/v1";
     self.modelField=[NSTextField new]; self.modelField.placeholderString=@"模型名称，例如 kimi-k2";
-    [self place:self.baseURLField x:40 y:146 w:538 h:28];
-    [self place:self.modelField x:40 y:112 w:538 h:28];
+    [self place:self.baseURLField x:40 y:128 w:538 h:28];
+    [self place:self.modelField x:40 y:94 w:538 h:28];
     self.baseURLField.hidden=YES; self.modelField.hidden=YES;
-    [self place:[self button:@"取消" action:@selector(cancel:) primary:NO] x:352 y:36 w:88 h:34];
-    [self place:[self button:@"验证并安装" action:@selector(start:) primary:YES] x:450 y:36 w:128 h:34];
+    [self place:[self button:@"取消" action:@selector(cancel:) primary:NO] x:352 y:20 w:88 h:34];
+    [self place:[self button:@"验证并安装" action:@selector(start:) primary:YES] x:450 y:20 w:128 h:34];
 }
 - (NSButton *)providerCard:(NSString *)title tag:(NSInteger)tag {
     NSButton *card=[NSButton buttonWithTitle:title target:self action:@selector(providerChanged:)];
-    card.tag=tag; card.bezelStyle=NSBezelStyleRegularSquare; card.controlSize=NSControlSizeLarge;
+    card.tag=tag; card.bezelStyle=NSBezelStyleRounded; card.controlSize=NSControlSizeLarge;
     [card setButtonType:NSButtonTypeToggle];
     card.font=[NSFont systemFontOfSize:13 weight:NSFontWeightMedium]; card.alignment=NSTextAlignmentLeft;
     return card;
@@ -101,10 +101,10 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     self.customCard.state=self.customProviderSelected?NSControlStateValueOn:NSControlStateValueOff;
     self.deepseekCard.title=self.customProviderSelected?@"DeepSeek\n推荐 · 开箱即用":@"✓  DeepSeek\n    推荐 · 开箱即用";
     self.customCard.title=self.customProviderSelected?@"✓  其他服务\n    OpenAI 兼容":@"其他服务\nOpenAI 兼容";
-    self.deepseekCard.bezelColor=self.customProviderSelected?NSColor.controlBackgroundColor:NSColor.controlAccentColor;
-    self.customCard.bezelColor=self.customProviderSelected?NSColor.controlAccentColor:NSColor.controlBackgroundColor;
-    self.deepseekCard.contentTintColor=self.customProviderSelected?NSColor.secondaryLabelColor:NSColor.whiteColor;
-    self.customCard.contentTintColor=self.customProviderSelected?NSColor.whiteColor:NSColor.secondaryLabelColor;
+    self.deepseekCard.bezelColor=self.customProviderSelected?NSColor.separatorColor:[NSColor.controlAccentColor colorWithAlphaComponent:0.20];
+    self.customCard.bezelColor=self.customProviderSelected?[NSColor.controlAccentColor colorWithAlphaComponent:0.20]:NSColor.separatorColor;
+    self.deepseekCard.contentTintColor=self.customProviderSelected?NSColor.secondaryLabelColor:NSColor.controlAccentColor;
+    self.customCard.contentTintColor=self.customProviderSelected?NSColor.controlAccentColor:NSColor.secondaryLabelColor;
 }
 - (BOOL)isCustomProvider { return self.customProviderSelected; }
 - (void)providerChanged:(NSButton *)sender {
@@ -114,10 +114,10 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     self.getKeyButton.hidden=custom;
     self.keyLabel.hidden=custom; self.keyLabel.stringValue=@"DeepSeek API Key";
     self.keyField.placeholderString=custom?@"API Key":@"粘贴你的 API Key";
-    self.keyField.frame=custom?NSMakeRect(40,78,538,28):NSMakeRect(40,112,410,28);
+    self.keyField.frame=custom?NSMakeRect(40,60,538,28):NSMakeRect(40,96,410,28);
     self.keyHelp.hidden=custom;
     self.keyHelp.stringValue=@"推荐首次使用；设置只保存在这台 Mac。";
-    self.keyHelp.frame=custom?NSMakeRect(40,54,540,20):NSMakeRect(40,84,540,20);
+    self.keyHelp.frame=NSMakeRect(40,70,540,20);
 }
 - (void)showInstalling {
     [self reset]; [self header];

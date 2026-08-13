@@ -18,4 +18,6 @@ grep -Fq '其他服务\nOpenAI 兼容' "$ROOT/installer/MeetingNotesInstaller.m"
 grep -Fq 'providerCard:@"DeepSeek' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL DeepSeek card"; exit 1; }
 grep -Fq 'providerCard:@"其他服务' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider card"; exit 1; }
 grep -Fq 'bezelColor=self.customProviderSelected' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL selected card highlight"; exit 1; }
+grep -Fq 'x:40 y:246 w:120 h:20' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service title position"; exit 1; }
+grep -Fq 'x:40 y:164 w:260 h:52' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service card spacing"; exit 1; }
 echo PASS
