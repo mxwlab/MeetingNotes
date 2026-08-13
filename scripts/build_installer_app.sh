@@ -9,7 +9,7 @@ RESOURCES="$CONTENTS/Resources"
 
 rm -rf "$OUTPUT"
 mkdir -p "$MACOS" "$RESOURCES"
-clang -fobjc-arc -O2 -framework Cocoa \
+clang -fobjc-arc -O2 -framework Cocoa -framework UniformTypeIdentifiers \
   -mmacosx-version-min=14.0 \
   "$BASE/installer/MeetingNotesInstaller.m" \
   -o "$MACOS/MeetingNotes Installer"

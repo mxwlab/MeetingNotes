@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 
@@ -178,10 +179,41 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
     NSTextField *c=[self label:@"把一段录音拖入“MeetingNotes 录音”，小猫会显示处理进度，完成后纪要会自动生成。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:78 y:380 w:464 h:52];
     NSString *r=@"✓   菜单栏小猫已启动\n      以后登录 Mac 时会自动出现\n\n✓   录音文件夹已放到桌面\n      把录音拖进去即可开始\n\n✓   AirDrop 自动处理已启用\n      从 iPhone 接收录音后会自动处理"; [self place:[self label:r size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:110 y:184 w:400 h:175];
-    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:YES] x:190 y:110 w:240 h:38]; [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:182 y:56 w:130 h:32]; [self place:[self button:@"完成" action:@selector(cancel:) primary:NO] x:324 y:56 w:110 h:32];
+    [self place:[self button:@"选择录音并开始处理" action:@selector(chooseRecording:) primary:YES] x:170 y:110 w:280 h:38];
+    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:106 y:56 w:142 h:32];
+    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:254 y:56 w:130 h:32];
+    [self place:[self button:@"完成" action:@selector(cancel:) primary:NO] x:390 y:56 w:110 h:32];
 }
 - (void)failure:(NSString *)message { self.taskTitle.stringValue=@"安装没有完成"; self.taskDetail.stringValue=message; self.percent.stringValue=@"需要处理"; }
 - (void)openInbox:(id)sender { NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/录音"]; [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:dir]]; }
+- (void)chooseRecording:(id)sender {
+    NSOpenPanel *panel=[NSOpenPanel openPanel];
+    panel.title=@"选择一段会议录音";
+    panel.message=@"选择后会复制到 MeetingNotes，桌面上的原文件会保留。";
+    panel.prompt=@"开始处理";
+    panel.canChooseFiles=YES; panel.canChooseDirectories=NO; panel.allowsMultipleSelection=NO;
+    NSMutableArray *types=[NSMutableArray array];
+    for(NSString *extension in @[@"m4a",@"mp3",@"wav",@"mp4",@"mov",@"aac",@"flac",@"aiff",@"opus"]) {
+        UTType *type=[UTType typeWithFilenameExtension:extension]; if(type) [types addObject:type];
+    }
+    panel.allowedContentTypes=types;
+    [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result){
+        if(result!=NSModalResponseOK || !panel.URL) return;
+        NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/录音"];
+        [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+        NSString *destination=[dir stringByAppendingPathComponent:panel.URL.lastPathComponent];
+        if([[NSFileManager defaultManager] fileExistsAtPath:destination]) {
+            NSString *stem=panel.URL.lastPathComponent.stringByDeletingPathExtension;
+            NSString *ext=panel.URL.pathExtension;
+            destination=[dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%lld.%@",stem,(long long)[NSDate date].timeIntervalSince1970,ext]];
+        }
+        NSError *error=nil;
+        if(![[NSFileManager defaultManager] copyItemAtURL:panel.URL toURL:[NSURL fileURLWithPath:destination] error:&error]) {
+            NSAlert *alert=[NSAlert new]; alert.messageText=@"无法加入这段录音"; alert.informativeText=error.localizedDescription ?: @"请稍后重试。"; [alert runModal]; return;
+        }
+        NSAlert *alert=[NSAlert new]; alert.messageText=@"录音已加入"; alert.informativeText=@"MeetingNotes 已开始处理，菜单栏小猫会显示进度。桌面上的原文件仍然保留。"; [alert addButtonWithTitle:@"知道了"]; [alert beginSheetModalForWindow:self.window completionHandler:nil];
+    }];
+}
 - (void)openKeyPage:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://platform.deepseek.com/api_keys"]]; }
 - (void)openGuide:(id)sender { NSString *base=[self base]; if(base) [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[base stringByAppendingPathComponent:@"docs/新手安装图文教程.md"]]]; }
 - (void)cancel:(id)sender { if(self.task.running)[self.task terminate]; [NSApp terminate:nil]; }
