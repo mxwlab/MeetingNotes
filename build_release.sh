@@ -28,6 +28,8 @@ files=(
   "NOTICE"
   "config.example.sh"
   "requirements.txt"
+  "requirements-ui.txt"
+  "setup_ui.py"
   "process.py"
   "pet.py"
   "watch_inbox.sh"
@@ -35,6 +37,7 @@ files=(
   "uninstall.sh"
   "docs/新手安装图文教程.md"
   "launchd/com.meetingnotes.plist.template"
+  "launchd/com.moxiuwen.meetingnotes.menubar.plist.template"
   "folder-action/airdrop-to-inbox.applescript"
   "folder-action/attach-folder-action.applescript"
   "folder-action/detach-folder-action.applescript"
@@ -47,6 +50,12 @@ files=(
   "scripts/gen_launchd.sh"
   "scripts/prompt_deepseek_key.applescript"
   "scripts/provision_models.sh"
+  "scripts/provision_menubar.sh"
+  "scripts/install_menubar_autostart.sh"
+  "ui/__init__.py"
+  "ui/menubar.py"
+  "ui/pet_status.py"
+  "ui/provider_config.py"
 )
 
 for relative_path in "${files[@]}"; do

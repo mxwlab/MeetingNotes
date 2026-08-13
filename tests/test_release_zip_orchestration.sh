@@ -44,7 +44,7 @@ package="$extract_dir/MeetingNotes"
 
 # Replace only external/system boundaries. The bootstrap being exercised is the
 # exact file extracted from the release zip.
-for helper in fetch_python.sh fetch_ffmpeg.sh provision_models.sh; do
+for helper in fetch_python.sh fetch_ffmpeg.sh provision_models.sh provision_menubar.sh; do
   cat > "$package/scripts/$helper" <<EOF
 #!/bin/zsh
 print -r -- "$helper" >> "\${MEETINGNOTES_TEST_CALLS:?}"
@@ -101,7 +101,7 @@ grep -Fq "zip-test-key" "$target/config.local.sh" || {
   exit 1
 }
 for expected in fetch_python.sh fetch_ffmpeg.sh \
-  provision_models.sh attach-folder-action; do
+  provision_models.sh provision_menubar.sh attach-folder-action; do
   grep -Fq "$expected" "$calls" || {
     echo "FAIL missing orchestration call: $expected"
     exit 1

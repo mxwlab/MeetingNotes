@@ -12,7 +12,7 @@ usage() {
 
   --dry-run          显示将移除的服务，不执行任何删除
   --non-interactive  不询问，默认保留 venv/models/tools
-  --remove-runtime   同时删除可重建的 venv/models/tools/runtime/bin 大件
+  --remove-runtime   同时删除可重建的运行环境、模型和菜单栏 App
 
 inbox/output/done 中的录音与纪要始终保留。
 config.local.sh 默认保留，便于重新安装。
@@ -36,15 +36,18 @@ plist="$HOME/Library/LaunchAgents/$label.plist"
 compiled="$HOME/Library/Scripts/Folder Action Scripts/MeetingNotes-$path_hash.scpt"
 downloads="${MEETINGNOTES_DOWNLOADS_DIR:-$HOME/Downloads}"
 detach_source="$BASE/folder-action/detach-folder-action.applescript"
+menubar_label="com.moxiuwen.meetingnotes.menubar"
+menubar_plist="$HOME/Library/LaunchAgents/$menubar_label.plist"
 
 if [[ "$DRY_RUN" == true ]]; then
   echo "Dry run：将卸载 $label"
   echo "  launchd plist: $plist"
   echo "  Folder Action script: $compiled"
+  echo "  菜单栏 launchd plist: $menubar_plist"
   echo "  用户数据保留: $BASE/inbox, $BASE/output, $BASE/done"
   echo "  本地配置保留: $BASE/config.local.sh"
   if [[ "$REMOVE_RUNTIME" == true ]]; then
-    echo "  将删除可重建大件: $BASE/venv, $BASE/models, $BASE/tools, $BASE/runtime, $BASE/bin"
+    echo "  将删除可重建大件: venv/models/tools/runtime/bin/venv-ui/build/dist"
   else
     echo "  可重建大件默认保留: $BASE/venv, $BASE/models, $BASE/tools, $BASE/runtime, $BASE/bin"
   fi
@@ -57,6 +60,12 @@ if command -v launchctl >/dev/null; then
 fi
 rm -f "$plist"
 echo "已移除 launchd 服务"
+
+if command -v launchctl >/dev/null; then
+  launchctl bootout "gui/$(id -u)/$menubar_label" >/dev/null 2>&1 || true
+fi
+rm -f "$menubar_plist"
+echo "已移除菜单栏自启服务"
 
 detached=false
 if [[ -f "$detach_source" && -d "$downloads" && -e "$compiled" ]] \
@@ -95,8 +104,9 @@ fi
 if [[ "$REMOVE_RUNTIME" == true ]]; then
   # Targets are fixed children of this project; user recordings and notes are
   # deliberately outside this list.
-  rm -rf "$BASE/venv" "$BASE/models" "$BASE/tools" "$BASE/runtime" "$BASE/bin"
-  echo "已删除 venv/models/tools/runtime/bin（可通过安装引导重建）"
+  rm -rf "$BASE/venv" "$BASE/models" "$BASE/tools" "$BASE/runtime" "$BASE/bin" \
+    "$BASE/venv-ui" "$BASE/build" "$BASE/dist"
+  echo "已删除运行环境、模型和菜单栏 App（可通过安装引导重建）"
 else
   echo "已保留 venv/models/tools/runtime/bin"
 fi

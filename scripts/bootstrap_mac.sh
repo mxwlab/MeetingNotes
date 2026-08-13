@@ -30,7 +30,8 @@ settle_project() {
     --exclude config.local.sh --exclude .pet_state
     --exclude inbox --exclude output --exclude done --exclude logs
     --exclude 录音 --exclude 纪要
-    --exclude models --exclude runtime --exclude venv --exclude tools
+    --exclude models --exclude runtime --exclude venv --exclude venv-ui
+    --exclude tools --exclude build --exclude dist
   )
 
   command -v rsync >/dev/null || fail_early "系统缺少 rsync，无法安顿程序文件"
@@ -86,7 +87,7 @@ mkdir -p "$HOME/Desktop"
 ensure_symlink "$HOME/Desktop/MeetingNotes 录音" "$BASE/录音" "桌面录音入口"
 
 step_number=0
-total_steps=7
+total_steps=8
 step() {
   step_number=$((step_number + 1))
   echo
@@ -205,6 +206,10 @@ plutil -lint "$plist" >> "$LOG" 2>&1 || fail "后台服务配置无效"
 launchctl bootout "gui/$(id -u)" "$plist" >> "$LOG" 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$plist" >> "$LOG" 2>&1 \
   || fail "启动后台服务失败"
+
+step "安装菜单栏"
+run_logged "$BASE/scripts/provision_menubar.sh" \
+  || fail "菜单栏 App 安装失败"
 
 step "启用 AirDrop 自动入库"
 if ! run_logged "$BASE/scripts/attach_folder_action.sh"; then

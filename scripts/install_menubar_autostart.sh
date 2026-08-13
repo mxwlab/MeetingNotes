@@ -17,12 +17,15 @@ fi
 mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
 sed \
   -e "s|__APP_EXECUTABLE__|$APP_EXECUTABLE|g" \
-  -e "s|__MEETINGNOTES_BASE__|/Users/moxiuwen/workspace/MeetingNotes|g" \
+  -e "s|__MEETINGNOTES_BASE__|$BASE|g" \
   -e "s|__LOG_DIR__|$LOG_DIR|g" \
   "$SOURCE" > "$TARGET"
 chmod 600 "$TARGET"
 
 launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
-launchctl bootstrap "$DOMAIN" "$TARGET"
+if ! launchctl bootstrap "$DOMAIN" "$TARGET"; then
+  sleep 1
+  launchctl bootstrap "$DOMAIN" "$TARGET"
+fi
 launchctl kickstart "$DOMAIN/$LABEL"
 print "已启用 MeetingNotes 菜单栏开机自启。"

@@ -36,7 +36,15 @@ for required in \
   'MeetingNotes/开始使用.command' \
   'MeetingNotes/scripts/bootstrap_mac.sh' \
   'MeetingNotes/process.py' \
-  'MeetingNotes/scripts/provision_models.sh'; do
+  'MeetingNotes/scripts/provision_models.sh' \
+  'MeetingNotes/scripts/provision_menubar.sh' \
+  'MeetingNotes/scripts/install_menubar_autostart.sh' \
+  'MeetingNotes/requirements-ui.txt' \
+  'MeetingNotes/setup_ui.py' \
+  'MeetingNotes/ui/menubar.py' \
+  'MeetingNotes/ui/pet_status.py' \
+  'MeetingNotes/ui/provider_config.py' \
+  'MeetingNotes/launchd/com.moxiuwen.meetingnotes.menubar.plist.template'; do
   grep -Fqx "$required" "$listing" || { echo "FAIL missing $required"; exit 1; }
 done
 if grep -Fqi 'fluidaudio' "$listing"; then
