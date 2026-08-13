@@ -10,6 +10,7 @@ models/
 # 第三方 FluidAudio 及其编译产物（见 fluidaudio-patch/SETUP.md 重建）
 tools/
 dist/
+tmp/
 
 # 运行时状态与日志
 logs/
