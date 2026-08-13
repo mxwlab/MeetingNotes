@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 
-IDLE_TITLE = "🐱"
+IDLE_TITLE = "🐱 空闲"
 FAIL_TITLE = "⚠️ 处理失败"
 
 _DONE_RE = re.compile(r"✅ 完成:\s*(.+?)\s*$")

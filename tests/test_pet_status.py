@@ -24,8 +24,8 @@ class TitleTests(unittest.TestCase):
         self.assertEqual(title_from_pet_state(""), IDLE_TITLE)
         self.assertEqual(title_from_pet_state("???"), IDLE_TITLE)
 
-    def test_idle_title_is_compact(self):
-        self.assertEqual(IDLE_TITLE, "🐱")
+    def test_idle_title_is_explicit(self):
+        self.assertEqual(IDLE_TITLE, "🐱 空闲")
 
 
 OK_LOG = "[2026-08-11 23:40:32] 开始处理: 权限讨论.m4a\n[2026-08-11 23:41:00] ✅ 完成: 权限讨论.m4a\n"
