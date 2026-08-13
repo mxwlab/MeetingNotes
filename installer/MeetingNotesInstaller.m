@@ -16,7 +16,9 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSTextField *taskDetail;
 @property NSTextField *steps;
 @property NSSecureTextField *keyField;
-@property NSPopUpButton *providerMenu;
+@property NSButton *deepseekCard;
+@property NSButton *customCard;
+@property BOOL customProviderSelected;
 @property NSTextField *baseURLField;
 @property NSTextField *modelField;
 @property NSTextField *keyLabel;
@@ -66,10 +68,11 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSArray *facts=@[@"◷   大约 5–10 分钟\n      取决于网络速度",@"⇩   需要下载约 3 GB\n      用于本机语音识别",@"✓   原始录音不会上传\n      只有转录文字发送给 AI 整理"];
     for(NSUInteger i=0;i<facts.count;i++) [self place:[self label:facts[i] size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:48 y:382-i*70 w:510 h:55];
     [self place:[self label:@"AI 服务" size:13 weight:NSFontWeightMedium color:NSColor.labelColor] x:40 y:216 w:120 h:20];
-    self.providerMenu=[[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
-    [self.providerMenu addItemsWithTitles:@[@"DeepSeek（推荐）", @"其他 OpenAI 兼容服务"]];
-    self.providerMenu.target=self; self.providerMenu.action=@selector(providerChanged:);
-    [self place:self.providerMenu x:40 y:182 w:538 h:28];
+    self.deepseekCard=[self providerCard:@"DeepSeek\n推荐 · 开箱即用" tag:0];
+    self.customCard=[self providerCard:@"其他服务\nOpenAI 兼容" tag:1];
+    [self place:self.deepseekCard x:40 y:174 w:260 h:52];
+    [self place:self.customCard x:318 y:174 w:260 h:52];
+    self.customProviderSelected=NO; [self updateProviderCards];
     self.keyLabel=[self label:@"DeepSeek API Key" size:13 weight:NSFontWeightMedium color:NSColor.labelColor];
     [self place:self.keyLabel x:40 y:150 w:300 h:20];
     self.keyField=[NSSecureTextField new]; self.keyField.placeholderString=@"粘贴你的 API Key"; self.keyField.font=[NSFont systemFontOfSize:14];
@@ -86,8 +89,21 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     [self place:[self button:@"取消" action:@selector(cancel:) primary:NO] x:352 y:36 w:88 h:34];
     [self place:[self button:@"验证并安装" action:@selector(start:) primary:YES] x:450 y:36 w:128 h:34];
 }
-- (BOOL)isCustomProvider { return self.providerMenu.indexOfSelectedItem==1; }
-- (void)providerChanged:(id)sender {
+- (NSButton *)providerCard:(NSString *)title tag:(NSInteger)tag {
+    NSButton *card=[NSButton buttonWithTitle:title target:self action:@selector(providerChanged:)];
+    card.tag=tag; card.bezelStyle=NSBezelStyleRegularSquare; card.controlSize=NSControlSizeLarge;
+    card.font=[NSFont systemFontOfSize:13 weight:NSFontWeightMedium]; card.alignment=NSTextAlignmentLeft;
+    return card;
+}
+- (void)updateProviderCards {
+    self.deepseekCard.state=self.customProviderSelected?NSControlStateValueOff:NSControlStateValueOn;
+    self.customCard.state=self.customProviderSelected?NSControlStateValueOn:NSControlStateValueOff;
+    self.deepseekCard.contentTintColor=self.customProviderSelected?NSColor.secondaryLabelColor:NSColor.controlAccentColor;
+    self.customCard.contentTintColor=self.customProviderSelected?NSColor.controlAccentColor:NSColor.secondaryLabelColor;
+}
+- (BOOL)isCustomProvider { return self.customProviderSelected; }
+- (void)providerChanged:(NSButton *)sender {
+    self.customProviderSelected=sender.tag==1; [self updateProviderCards];
     BOOL custom=[self isCustomProvider];
     self.baseURLField.hidden=!custom; self.modelField.hidden=!custom;
     self.getKeyButton.hidden=custom;

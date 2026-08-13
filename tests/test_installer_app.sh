@@ -13,6 +13,8 @@ plutil -lint "$app/Contents/Info.plist" >/dev/null || { echo "FAIL plist"; exit 
 file "$app/Contents/MacOS/MeetingNotes Installer" | grep -q 'arm64' || { echo "FAIL arm64"; exit 1; }
 strings "$app/Contents/MacOS/MeetingNotes Installer" | grep -q '@@MEETINGNOTES@@' || { echo "FAIL protocol"; exit 1; }
 grep -Fq '请先填写 DeepSeek API Key' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL key validation"; exit 1; }
-grep -Fq 'DeepSeek（推荐）' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recommended provider"; exit 1; }
-grep -Fq '其他 OpenAI 兼容服务' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider option"; exit 1; }
+grep -Fq 'DeepSeek\n推荐 · 开箱即用' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recommended provider"; exit 1; }
+grep -Fq '其他服务\nOpenAI 兼容' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider option"; exit 1; }
+grep -Fq 'providerCard:@"DeepSeek' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL DeepSeek card"; exit 1; }
+grep -Fq 'providerCard:@"其他服务' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider card"; exit 1; }
 echo PASS
