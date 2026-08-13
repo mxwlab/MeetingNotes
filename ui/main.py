@@ -50,10 +50,10 @@ class DropView(NSView):
         path.setLineWidth_(2.0 if self.hovering else 1.0)
         path.setLineDash_count_phase_([7.0, 5.0], 2, 0)
         path.stroke()
-        self._text("拖入一段会议录音", 17, 150, 48, True)
-        self._text("松开后立即开始处理", 13, 157, 80, False)
+        self.draw_text("拖入一段会议录音", 17, 150, 48, True)
+        self.draw_text("松开后立即开始处理", 13, 157, 80, False)
 
-    def _text(self, value, size, x, y, bold):
+    def draw_text(self, value, size, x, y, bold):
         attrs = {"NSFont": NSFont.systemFontOfSize_weight_(size, 0.6 if bold else 0.0), "NSForegroundColor": NSColor.labelColor() if bold else NSColor.secondaryLabelColor()}
         from Foundation import NSString
         NSString.stringWithString_(value).drawAtPoint_withAttributes_((x, y), attrs)
@@ -89,13 +89,13 @@ class MainDelegate(NSObject):
         icon = NSImageView.alloc().initWithFrame_(NSMakeRect(36, 472, 32, 32))
         icon.setImage_(NSApp.applicationIconImage())
         content.addSubview_(icon)
-        self._label(content, "MeetingNotes", 78, 478, 15, True)
-        self._label(content, "把录音变成清晰、可搜索的会议纪要", 48, 416, 28, True)
-        self._label(content, "支持两种方式：拖入录音，或直接从手机 AirDrop 到这台 Mac。", 48, 382, 15, False)
+        self.draw_label(content, "MeetingNotes", 78, 478, 15, True)
+        self.draw_label(content, "把录音变成清晰、可搜索的会议纪要", 48, 416, 28, True)
+        self.draw_label(content, "支持两种方式：拖入录音，或直接从手机 AirDrop 到这台 Mac。", 48, 382, 15, False)
         drop = DropView.alloc().initWithFrame_(NSMakeRect(48, 184, 584, 166))
         drop.controller = self
         content.addSubview_(drop)
-        self._label(content, "AirDrop 收到的录音会自动进入队列，不需要一直打开这个窗口。", 48, 152, 13, False)
+        self.draw_label(content, "AirDrop 收到的录音会自动进入队列，不需要一直打开这个窗口。", 48, 152, 13, False)
         choose = NSButton.alloc().initWithFrame_(NSMakeRect(48, 94, 180, 38))
         choose.setTitle_("选择录音文件")
         choose.setBezelStyle_(1)
@@ -108,11 +108,11 @@ class MainDelegate(NSObject):
         open_folder.setTarget_(self)
         open_folder.setAction_("openFolder:")
         content.addSubview_(open_folder)
-        self.status = self._label(content, "等待加入第一段录音", 48, 48, 13, False)
+        self.status = self.draw_label(content, "等待加入第一段录音", 48, 48, 13, False)
         self.window.makeKeyAndOrderFront_(None)
         NSApp.activateIgnoringOtherApps_(True)
 
-    def _label(self, parent, text, x, y, size, bold):
+    def draw_label(self, parent, text, x, y, size, bold):
         field = NSTextField.alloc().initWithFrame_(NSMakeRect(x, y, 590, 28))
         field.setStringValue_(text)
         field.setFont_(NSFont.systemFontOfSize_weight_(size, 0.6 if bold else 0.0))
