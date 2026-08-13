@@ -45,7 +45,8 @@ for required in \
   'MeetingNotes/scripts/install_menubar_autostart.sh' \
   'MeetingNotes/requirements-ui.txt' \
   'MeetingNotes/setup_ui.py' \
-  'MeetingNotes/setup_main.py' \
+  'MeetingNotes/installer/MeetingNotesInstaller.m' \
+  'MeetingNotes/scripts/build_main_app.sh' \
   'MeetingNotes/ui/menubar.py' \
   'MeetingNotes/ui/main.py' \
   'MeetingNotes/ui/pet_status.py' \

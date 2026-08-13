@@ -20,7 +20,7 @@ fi
 (
   cd "$BASE"
   "$UI_PYTHON" setup_ui.py py2app -A --dist-dir "$BASE/dist-menubar"
-  "$UI_PYTHON" setup_main.py py2app -A --dist-dir "$BASE/dist"
+  "$BASE/scripts/build_main_app.sh" "$BASE/dist/MeetingNotes.app"
 )
 
 [[ -x "$BASE/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" ]] || {
@@ -36,9 +36,6 @@ APPLICATIONS="$HOME/Applications"
 mkdir -p "$APPLICATIONS"
 rm -rf "$APPLICATIONS/MeetingNotes.app"
 cp -R "$BASE/dist/MeetingNotes.app" "$APPLICATIONS/MeetingNotes.app"
-# py2app alias builds use a symlink for the icon; make the installed app self-contained.
-rm -f "$APPLICATIONS/MeetingNotes.app/Contents/Resources/MeetingNotes.icns"
-cp "$BASE/assets/MeetingNotes.icns" "$APPLICATIONS/MeetingNotes.app/Contents/Resources/MeetingNotes.icns"
 mkdir -p "$HOME/Library/Application Support/MeetingNotes"
 print -r -- "$BASE" > "$HOME/Library/Application Support/MeetingNotes/base"
 

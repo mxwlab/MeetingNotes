@@ -54,9 +54,14 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
     self.buffer = [NSMutableString string]; self.details = [NSMutableString string]; self.completed = [NSMutableSet set];
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,620,650) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
-    self.window.title = @"MeetingNotes 安装助手"; self.window.releasedWhenClosed = NO;
+    self.window.title = @"MeetingNotes"; self.window.releasedWhenClosed = NO;
     self.content = [NSView new]; self.window.contentView = self.content; [self.window center];
-    [self showReady]; [self.window makeKeyAndOrderFront:nil]; [self.window orderFrontRegardless]; [NSApp activateIgnoringOtherApps:YES];
+    #ifdef MN_MAIN_APP
+    [self showComplete];
+    #else
+    [self showReady];
+    #endif
+    [self.window makeKeyAndOrderFront:nil]; [self.window orderFrontRegardless]; [NSApp activateIgnoringOtherApps:YES];
     NSString *preview=NSProcessInfo.processInfo.environment[@"MEETINGNOTES_INSTALLER_PREVIEW"];
     if([preview isEqual:@"installing"]) [self showInstalling];
     if([preview isEqual:@"complete"]) [self showComplete];
@@ -215,6 +220,10 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (NSString *)processingBase {
     NSString *source=NSProcessInfo.processInfo.environment[@"MEETINGNOTES_SOURCE_BASE"];
     if(source.length && [[NSFileManager defaultManager] fileExistsAtPath:[source stringByAppendingPathComponent:@"watch_inbox.sh"]]) return source;
+    NSString *marker=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/MeetingNotes/base"];
+    NSString *rawMarked=[NSString stringWithContentsOfFile:marker encoding:NSUTF8StringEncoding error:nil];
+    NSString *marked=[rawMarked stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if(marked.length && [[NSFileManager defaultManager] fileExistsAtPath:[marked stringByAppendingPathComponent:@"watch_inbox.sh"]]) return marked;
     NSString *installed=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes"];
     if([[NSFileManager defaultManager] fileExistsAtPath:[installed stringByAppendingPathComponent:@"watch_inbox.sh"]]) return installed;
     NSString *bundleBase=[self base];
