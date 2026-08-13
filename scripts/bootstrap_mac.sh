@@ -171,6 +171,22 @@ validate_deepseek_key() {
   esac
 }
 
+validate_custom_provider() {
+  local base_url="$1" model="$2" key="$3" response_file http_code endpoint
+  [[ -n "$base_url" && -n "$model" && -n "$key" ]] || { VALIDATION_MESSAGE="服务设置不完整"; return 1; }
+  [[ "$base_url" == https://* ]] || { VALIDATION_MESSAGE="服务地址必须以 https:// 开头"; return 1; }
+  [[ "$base_url$model" != *['"\\'$'\n'$'\r']* ]] || { VALIDATION_MESSAGE="服务地址或模型名称包含无效字符"; return 1; }
+  endpoint="${base_url%/}/chat/completions"
+  response_file="$(mktemp "$LOG_DIR/.provider-check.XXXXXX")"
+  http_code="$(curl --silent --show-error --connect-timeout 15 --max-time 45 \
+    -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $key" \
+    -H 'Content-Type: application/json' \
+    --data "{\"model\":\"$model\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" \
+    "$endpoint" 2>/dev/null)" || { rm -f "$response_file"; VALIDATION_MESSAGE="无法连接该 AI 服务，请检查地址和网络"; return 1; }
+  rm -f "$response_file"
+  [[ "$http_code" == 2* ]] || { VALIDATION_MESSAGE="AI 服务验证未通过（HTTP $http_code）"; return 1; }
+}
+
 write_config() {
   local key="$1"
   local config="$BASE/config.local.sh"
@@ -178,6 +194,10 @@ write_config() {
   umask 077
   {
     printf 'export DEEPSEEK_API_KEY=%q\n' "$key"
+    if [[ -n "${MEETINGNOTES_INSTALLER_BASE_URL:-}" ]]; then
+      printf 'export LLM_BASE_URL=%q\n' "$MEETINGNOTES_INSTALLER_BASE_URL"
+      printf 'export LLM_MODEL=%q\n' "$MEETINGNOTES_INSTALLER_MODEL"
+    fi
     printf 'export OBSIDIAN_DIR=%q\n' ""
   } > "$config_tmp"
   chmod 600 "$config_tmp"
@@ -198,7 +218,11 @@ else
   key=""
   if [[ -n "${MEETINGNOTES_INSTALLER_KEY:-}" ]]; then
     key="$MEETINGNOTES_INSTALLER_KEY"
-    validate_deepseek_key "$key" || fail "$VALIDATION_MESSAGE"
+    if [[ -n "${MEETINGNOTES_INSTALLER_BASE_URL:-}" ]]; then
+      validate_custom_provider "$MEETINGNOTES_INSTALLER_BASE_URL" "$MEETINGNOTES_INSTALLER_MODEL" "$key" || fail "$VALIDATION_MESSAGE"
+    else
+      validate_deepseek_key "$key" || fail "$VALIDATION_MESSAGE"
+    fi
   elif [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" == true ]]; then
     key="${DEEPSEEK_API_KEY:-}"
     [[ -n "$key" ]] || fail "测试模式缺少 DEEPSEEK_API_KEY"
@@ -223,6 +247,7 @@ else
   write_config "$key"
   unset key
   unset MEETINGNOTES_INSTALLER_KEY
+  unset MEETINGNOTES_INSTALLER_BASE_URL MEETINGNOTES_INSTALLER_MODEL
   echo "DeepSeek 设置验证通过"
 fi
 mn_progress step_done provider 7 "AI 服务已连接" "设置只保存在这台 Mac"

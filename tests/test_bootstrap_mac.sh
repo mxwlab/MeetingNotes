@@ -115,6 +115,8 @@ grep -q "test-key-one" "$target/config.local.sh" || { echo "FAIL config overwrit
   || { echo "FAIL key leaked to log"; exit 1; }
 grep -Fq 'MEETINGNOTES_INSTALLER_KEY' "$target/scripts/bootstrap_mac.sh" \
   || { echo "FAIL native installer key handoff missing"; exit 1; }
+grep -Fq 'MEETINGNOTES_INSTALLER_BASE_URL' "$target/scripts/bootstrap_mac.sh" \
+  || { echo "FAIL custom provider handoff missing"; exit 1; }
 
 # 中途失败后重跑应保留已写配置，并从幂等步骤继续完成。
 retry_package="$tmp/retry-package"

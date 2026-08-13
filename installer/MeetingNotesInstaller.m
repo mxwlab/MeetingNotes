@@ -16,6 +16,12 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSTextField *taskDetail;
 @property NSTextField *steps;
 @property NSSecureTextField *keyField;
+@property NSPopUpButton *providerMenu;
+@property NSTextField *baseURLField;
+@property NSTextField *modelField;
+@property NSTextField *keyLabel;
+@property NSButton *getKeyButton;
+@property NSTextField *keyHelp;
 @end
 
 @implementation MNController
@@ -59,13 +65,37 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     [self place:[self label:@"把会议录音变成清晰、可搜索的纪要。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor] x:40 y:466 w:540 h:24];
     NSArray *facts=@[@"◷   大约 5–10 分钟\n      取决于网络速度",@"⇩   需要下载约 3 GB\n      用于本机语音识别",@"✓   原始录音不会上传\n      只有转录文字发送给 AI 整理"];
     for(NSUInteger i=0;i<facts.count;i++) [self place:[self label:facts[i] size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:48 y:382-i*70 w:510 h:55];
-    [self place:[self label:@"DeepSeek API Key" size:13 weight:NSFontWeightMedium color:NSColor.labelColor] x:40 y:184 w:300 h:20];
+    [self place:[self label:@"AI 服务" size:13 weight:NSFontWeightMedium color:NSColor.labelColor] x:40 y:216 w:120 h:20];
+    self.providerMenu=[[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+    [self.providerMenu addItemsWithTitles:@[@"DeepSeek（推荐）", @"其他 OpenAI 兼容服务"]];
+    self.providerMenu.target=self; self.providerMenu.action=@selector(providerChanged:);
+    [self place:self.providerMenu x:40 y:182 w:538 h:28];
+    self.keyLabel=[self label:@"DeepSeek API Key" size:13 weight:NSFontWeightMedium color:NSColor.labelColor];
+    [self place:self.keyLabel x:40 y:150 w:300 h:20];
     self.keyField=[NSSecureTextField new]; self.keyField.placeholderString=@"粘贴你的 API Key"; self.keyField.font=[NSFont systemFontOfSize:14];
-    [self place:self.keyField x:40 y:146 w:410 h:28];
-    [self place:[self button:@"获取 Key" action:@selector(openKeyPage:) primary:NO] x:462 y:144 w:116 h:31];
-    [self place:[self label:@"只保存在这台 Mac；已有设置时可以直接继续。" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor] x:40 y:116 w:540 h:20];
-    [self place:[self button:@"取消" action:@selector(cancel:) primary:NO] x:352 y:48 w:88 h:34];
-    [self place:[self button:@"验证并安装" action:@selector(start:) primary:YES] x:450 y:48 w:128 h:34];
+    [self place:self.keyField x:40 y:112 w:410 h:28];
+    self.getKeyButton=[self button:@"获取 Key" action:@selector(openKeyPage:) primary:NO];
+    [self place:self.getKeyButton x:462 y:110 w:116 h:31];
+    self.keyHelp=[self label:@"推荐首次使用；设置只保存在这台 Mac。" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
+    [self place:self.keyHelp x:40 y:84 w:540 h:20];
+    self.baseURLField=[NSTextField new]; self.baseURLField.placeholderString=@"服务地址，例如 https://api.example.com/v1";
+    self.modelField=[NSTextField new]; self.modelField.placeholderString=@"模型名称，例如 kimi-k2";
+    [self place:self.baseURLField x:40 y:146 w:538 h:28];
+    [self place:self.modelField x:40 y:112 w:538 h:28];
+    self.baseURLField.hidden=YES; self.modelField.hidden=YES;
+    [self place:[self button:@"取消" action:@selector(cancel:) primary:NO] x:352 y:36 w:88 h:34];
+    [self place:[self button:@"验证并安装" action:@selector(start:) primary:YES] x:450 y:36 w:128 h:34];
+}
+- (BOOL)isCustomProvider { return self.providerMenu.indexOfSelectedItem==1; }
+- (void)providerChanged:(id)sender {
+    BOOL custom=[self isCustomProvider];
+    self.baseURLField.hidden=!custom; self.modelField.hidden=!custom;
+    self.getKeyButton.hidden=custom;
+    self.keyLabel.hidden=custom; self.keyLabel.stringValue=@"DeepSeek API Key";
+    self.keyField.placeholderString=custom?@"API Key":@"粘贴你的 API Key";
+    self.keyField.frame=custom?NSMakeRect(40,78,538,28):NSMakeRect(40,112,410,28);
+    self.keyHelp.stringValue=custom?@"填写兼容 OpenAI Chat Completions 的服务；设置只保存在这台 Mac。":@"推荐首次使用；设置只保存在这台 Mac。";
+    self.keyHelp.frame=custom?NSMakeRect(40,54,540,20):NSMakeRect(40,84,540,20);
 }
 - (void)showInstalling {
     [self reset]; [self header];
@@ -93,13 +123,18 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (void)start:(id)sender {
     NSString *base=[self base]; if(!base){ NSBeep(); return; }
     NSString *existing=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/config.local.sh"];
-    if(!self.keyField.stringValue.length && ![[NSFileManager defaultManager] fileExistsAtPath:existing]) {
+    BOOL custom=[self isCustomProvider];
+    if(custom && (!self.baseURLField.stringValue.length || !self.modelField.stringValue.length || !self.keyField.stringValue.length)) {
+        NSAlert *alert=[NSAlert new]; alert.messageText=@"请填写完整的服务设置"; alert.informativeText=@"需要服务地址、模型名称和 API Key。"; [alert addButtonWithTitle:@"知道了"]; [alert runModal]; return;
+    }
+    if(!custom && !self.keyField.stringValue.length && ![[NSFileManager defaultManager] fileExistsAtPath:existing]) {
         NSAlert *alert=[NSAlert new]; alert.messageText=@"请先填写 DeepSeek API Key"; alert.informativeText=@"它用于把本机转录文字整理成会议纪要，只会保存在这台 Mac。"; [alert addButtonWithTitle:@"知道了"]; [alert runModal]; return;
     }
     [self showInstalling];
     self.task=[NSTask new]; self.task.executableURL=[NSURL fileURLWithPath:@"/bin/zsh"]; self.task.arguments=@[[base stringByAppendingPathComponent:@"scripts/bootstrap_mac.sh"]];
     NSMutableDictionary *env=[NSProcessInfo.processInfo.environment mutableCopy]; env[@"MEETINGNOTES_PROGRESS_JSON"]=@"true"; self.task.environment=env;
     if(self.keyField.stringValue.length) env[@"MEETINGNOTES_INSTALLER_KEY"]=self.keyField.stringValue;
+    if(custom) { env[@"MEETINGNOTES_INSTALLER_BASE_URL"]=self.baseURLField.stringValue; env[@"MEETINGNOTES_INSTALLER_MODEL"]=self.modelField.stringValue; }
     self.task.environment=env;
     self.pipe=[NSPipe pipe]; self.task.standardOutput=self.pipe; self.task.standardError=self.pipe;
     __weak typeof(self) weakSelf=self;
