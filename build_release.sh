@@ -33,6 +33,7 @@ files=(
   "requirements-ui.txt"
   "setup_ui.py"
   "setup_main.py"
+  "assets/MeetingNotes.icns"
   "process.py"
   "pet.py"
   "watch_inbox.sh"

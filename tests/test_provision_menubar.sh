@@ -15,6 +15,8 @@ cp "$ROOT/scripts/install_menubar_autostart.sh" "$project/scripts/"
 cp "$ROOT/launchd/com.moxiuwen.meetingnotes.menubar.plist.template" "$project/launchd/"
 cp "$ROOT/setup_ui.py" "$ROOT/requirements-ui.txt" "$project/"
 cp "$ROOT/setup_main.py" "$project/"
+mkdir -p "$project/assets"
+cp "$ROOT/assets/MeetingNotes.icns" "$project/assets/"
 cp "$ROOT/ui/"*.py "$project/ui/"
 ln -s "$ROOT/venv/bin/python" "$project/venv/bin/python"
 ln -s "$ROOT/venv-ui" "$project/venv-ui"
@@ -38,6 +40,8 @@ app="$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNote
 plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
 [[ -x "$app" ]] || { echo "FAIL app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || { echo "FAIL main app missing"; exit 1; }
+[[ -f "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon missing"; exit 1; }
+[[ ! -L "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon is symlink"; exit 1; }
 plutil -lint "$plist" >/dev/null || { echo "FAIL plist invalid"; exit 1; }
 grep -Fq "$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" "$plist" \
   || { echo "FAIL app path"; exit 1; }

@@ -5,6 +5,7 @@ APP = ["ui/main.py"]
 OPTIONS = {
     "argv_emulation": False,
     "packages": ["ui"],
+    "iconfile": "assets/MeetingNotes.icns",
     "plist": {
         "CFBundleDisplayName": "MeetingNotes",
         "CFBundleIdentifier": "com.moxiuwen.meetingnotes",
