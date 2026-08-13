@@ -17,4 +17,5 @@ grep -Fq 'DeepSeek\n推荐 · 开箱即用' "$ROOT/installer/MeetingNotesInstall
 grep -Fq '其他服务\nOpenAI 兼容' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider option"; exit 1; }
 grep -Fq 'providerCard:@"DeepSeek' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL DeepSeek card"; exit 1; }
 grep -Fq 'providerCard:@"其他服务' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL custom provider card"; exit 1; }
+grep -Fq 'bezelColor=self.customProviderSelected' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL selected card highlight"; exit 1; }
 echo PASS

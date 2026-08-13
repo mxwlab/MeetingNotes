@@ -92,14 +92,19 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (NSButton *)providerCard:(NSString *)title tag:(NSInteger)tag {
     NSButton *card=[NSButton buttonWithTitle:title target:self action:@selector(providerChanged:)];
     card.tag=tag; card.bezelStyle=NSBezelStyleRegularSquare; card.controlSize=NSControlSizeLarge;
+    [card setButtonType:NSButtonTypeToggle];
     card.font=[NSFont systemFontOfSize:13 weight:NSFontWeightMedium]; card.alignment=NSTextAlignmentLeft;
     return card;
 }
 - (void)updateProviderCards {
     self.deepseekCard.state=self.customProviderSelected?NSControlStateValueOff:NSControlStateValueOn;
     self.customCard.state=self.customProviderSelected?NSControlStateValueOn:NSControlStateValueOff;
-    self.deepseekCard.contentTintColor=self.customProviderSelected?NSColor.secondaryLabelColor:NSColor.controlAccentColor;
-    self.customCard.contentTintColor=self.customProviderSelected?NSColor.controlAccentColor:NSColor.secondaryLabelColor;
+    self.deepseekCard.title=self.customProviderSelected?@"DeepSeek\n推荐 · 开箱即用":@"✓  DeepSeek\n    推荐 · 开箱即用";
+    self.customCard.title=self.customProviderSelected?@"✓  其他服务\n    OpenAI 兼容":@"其他服务\nOpenAI 兼容";
+    self.deepseekCard.bezelColor=self.customProviderSelected?NSColor.controlBackgroundColor:NSColor.controlAccentColor;
+    self.customCard.bezelColor=self.customProviderSelected?NSColor.controlAccentColor:NSColor.controlBackgroundColor;
+    self.deepseekCard.contentTintColor=self.customProviderSelected?NSColor.secondaryLabelColor:NSColor.whiteColor;
+    self.customCard.contentTintColor=self.customProviderSelected?NSColor.whiteColor:NSColor.secondaryLabelColor;
 }
 - (BOOL)isCustomProvider { return self.customProviderSelected; }
 - (void)providerChanged:(NSButton *)sender {
@@ -110,7 +115,8 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     self.keyLabel.hidden=custom; self.keyLabel.stringValue=@"DeepSeek API Key";
     self.keyField.placeholderString=custom?@"API Key":@"粘贴你的 API Key";
     self.keyField.frame=custom?NSMakeRect(40,78,538,28):NSMakeRect(40,112,410,28);
-    self.keyHelp.stringValue=custom?@"填写兼容 OpenAI Chat Completions 的服务；设置只保存在这台 Mac。":@"推荐首次使用；设置只保存在这台 Mac。";
+    self.keyHelp.hidden=custom;
+    self.keyHelp.stringValue=@"推荐首次使用；设置只保存在这台 Mac。";
     self.keyHelp.frame=custom?NSMakeRect(40,54,540,20):NSMakeRect(40,84,540,20);
 }
 - (void)showInstalling {
