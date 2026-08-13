@@ -42,6 +42,7 @@ plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
 [[ -x "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || { echo "FAIL main app missing"; exit 1; }
 [[ -f "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon missing"; exit 1; }
 [[ ! -L "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon is symlink"; exit 1; }
+grep -Fqx "${project:A}" "$home/Library/Application Support/MeetingNotes/base" || { echo "FAIL app base marker"; exit 1; }
 plutil -lint "$plist" >/dev/null || { echo "FAIL plist invalid"; exit 1; }
 grep -Fq "$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" "$plist" \
   || { echo "FAIL app path"; exit 1; }

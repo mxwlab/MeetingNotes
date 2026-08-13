@@ -39,5 +39,7 @@ cp -R "$BASE/dist/MeetingNotes.app" "$APPLICATIONS/MeetingNotes.app"
 # py2app alias builds use a symlink for the icon; make the installed app self-contained.
 rm -f "$APPLICATIONS/MeetingNotes.app/Contents/Resources/MeetingNotes.icns"
 cp "$BASE/assets/MeetingNotes.icns" "$APPLICATIONS/MeetingNotes.app/Contents/Resources/MeetingNotes.icns"
+mkdir -p "$HOME/Library/Application Support/MeetingNotes"
+print -r -- "$BASE" > "$HOME/Library/Application Support/MeetingNotes/base"
 
 "$BASE/scripts/install_menubar_autostart.sh"

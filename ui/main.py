@@ -27,7 +27,19 @@ from AppKit import (
 )
 from Foundation import NSURL, NSObject
 
-BASE = Path(os.environ.get("MEETINGNOTES_BASE", Path.home() / "MeetingNotes"))
+def resolve_base():
+    override = os.environ.get("MEETINGNOTES_BASE")
+    if override:
+        return Path(override)
+    marker = Path.home() / "Library" / "Application Support" / "MeetingNotes" / "base"
+    if marker.is_file():
+        value = marker.read_text(encoding="utf-8").strip()
+        if value:
+            return Path(value)
+    return Path.home() / "MeetingNotes"
+
+
+BASE = resolve_base()
 INBOX = BASE / "inbox"
 
 
