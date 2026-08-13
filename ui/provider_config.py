@@ -65,3 +65,33 @@ def save_custom(path: str, base_url: str, model: str, api_key: str) -> None:
         },
     )
     _atomic_write_600(path, text)
+
+
+def _default_client_factory(base_url: str, api_key: str):
+    from openai import OpenAI
+
+    return OpenAI(base_url=base_url, api_key=api_key)
+
+
+def validate_provider(base_url, model, api_key, *, client_factory=None):
+    """发送最小 chat 请求探活，返回 ``(成功, 中文原因)``。"""
+    factory = client_factory or _default_client_factory
+    try:
+        client = factory(base_url, api_key)
+        client.chat.completions.create(
+            model=model,
+            max_tokens=1,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        return True, ""
+    except Exception as error:
+        return False, f"验证未通过：{error}"
+
+
+def validate_deepseek(api_key, *, client_factory=None):
+    return validate_provider(
+        DEFAULT_DEEPSEEK_BASE,
+        DEFAULT_DEEPSEEK_MODEL,
+        api_key,
+        client_factory=client_factory,
+    )

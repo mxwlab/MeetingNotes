@@ -4,10 +4,17 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from ui.provider_config import apply_updates, save_custom, save_deepseek  # noqa: E402
+from ui.provider_config import (  # noqa: E402
+    apply_updates,
+    save_custom,
+    save_deepseek,
+    validate_deepseek,
+    validate_provider,
+)
 
 
 class ApplyUpdatesTests(unittest.TestCase):
@@ -48,7 +55,7 @@ class SaveTests(unittest.TestCase):
         with open(p, "w") as f:
             f.write('export OBSIDIAN_DIR="/vault"\n')
         save_custom(p, "https://gw/v1", "kimi-k2", "sk-x")
-        text = open(p).read()
+        text = Path(p).read_text()
         self.assertIn("export LLM_BASE_URL=https://gw/v1", text)
         self.assertIn("export LLM_MODEL=kimi-k2", text)
         self.assertIn("export DEEPSEEK_API_KEY=sk-x", text)
@@ -61,11 +68,51 @@ class SaveTests(unittest.TestCase):
             f.write('export LLM_BASE_URL="https://gw"\nexport LLM_MODEL="kimi"\n'
                     'export OBSIDIAN_DIR="/vault"\n')
         save_deepseek(p, "sk-deep")
-        text = open(p).read()
+        text = Path(p).read_text()
         self.assertIn("export DEEPSEEK_API_KEY=sk-deep", text)
         self.assertNotIn("LLM_BASE_URL", text)
         self.assertNotIn("LLM_MODEL", text)
         self.assertIn('export OBSIDIAN_DIR="/vault"', text)
+
+
+class _FakeClient:
+    def __init__(self, exc=None):
+        self.chat = mock.Mock()
+        self.chat.completions = mock.Mock()
+        if exc:
+            self.chat.completions.create.side_effect = exc
+        else:
+            self.chat.completions.create.return_value = mock.Mock()
+
+
+class ValidateTests(unittest.TestCase):
+    def test_success(self):
+        ok, msg = validate_provider(
+            "https://gw", "m", "k", client_factory=lambda base, key: _FakeClient()
+        )
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_failure_returns_reason(self):
+        ok, msg = validate_provider(
+            "https://gw",
+            "m",
+            "k",
+            client_factory=lambda base, key: _FakeClient(Exception("401 Unauthorized")),
+        )
+        self.assertFalse(ok)
+        self.assertIn("401", msg)
+
+    def test_deepseek_uses_default_base(self):
+        captured = {}
+
+        def factory(base, key):
+            captured["base"] = base
+            return _FakeClient()
+
+        ok, _ = validate_deepseek("k", client_factory=factory)
+        self.assertTrue(ok)
+        self.assertEqual(captured["base"], "https://api.deepseek.com")
 
 
 if __name__ == "__main__":
