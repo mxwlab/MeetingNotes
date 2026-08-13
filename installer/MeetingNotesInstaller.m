@@ -3,6 +3,12 @@
 
 static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 
+@class MNController;
+@interface MNDropView : NSView
+@property (weak) MNController *controller;
+@property BOOL hovering;
+@end
+
 @interface MNController : NSObject <NSApplicationDelegate>
 @property NSWindow *window;
 @property NSView *content;
@@ -25,6 +31,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSTextField *keyLabel;
 @property NSButton *getKeyButton;
 @property NSTextField *keyHelp;
+@property NSTextField *recordingStatus;
 @end
 
 @implementation MNController
@@ -177,12 +184,15 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 - (void)showComplete {
     [self reset]; [self place:[self appIcon:72] x:274 y:482 w:72 h:72];
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
-    NSTextField *c=[self label:@"把一段录音拖入“MeetingNotes 录音”，小猫会显示处理进度，完成后纪要会自动生成。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:78 y:380 w:464 h:52];
-    NSString *r=@"✓   菜单栏小猫已启动\n      以后登录 Mac 时会自动出现\n\n✓   录音文件夹已放到桌面\n      把录音拖进去即可开始\n\n✓   AirDrop 自动处理已启用\n      从 iPhone 接收录音后会自动处理"; [self place:[self label:r size:15 weight:NSFontWeightRegular color:NSColor.labelColor] x:110 y:184 w:400 h:175];
-    [self place:[self button:@"选择录音并开始处理" action:@selector(chooseRecording:) primary:YES] x:170 y:110 w:280 h:38];
-    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:106 y:56 w:142 h:32];
-    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:254 y:56 w:130 h:32];
-    [self place:[self button:@"完成" action:@selector(cancel:) primary:NO] x:390 y:56 w:110 h:32];
+    NSTextField *c=[self label:@"现在加入第一段录音，MeetingNotes 会立即开始处理。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:78 y:404 w:464 h:26];
+    MNDropView *drop=[MNDropView new]; drop.controller=self; [self place:drop x:85 y:228 w:450 h:154];
+    self.recordingStatus=[self label:@"支持 m4a、mp3、wav、mp4、mov 等常见音视频格式" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; self.recordingStatus.alignment=NSTextAlignmentCenter;
+    [self place:self.recordingStatus x:75 y:194 w:470 h:20];
+    NSString *r=@"✓  菜单栏小猫已启动并显示处理进度      ✓  AirDrop 自动处理已启用"; NSTextField *ready=[self label:r size:13 weight:NSFontWeightRegular color:NSColor.labelColor]; ready.alignment=NSTextAlignmentCenter; [self place:ready x:60 y:154 w:500 h:22];
+    [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
+    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:106 y:50 w:142 h:32];
+    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:254 y:50 w:130 h:32];
+    [self place:[self button:@"完成" action:@selector(cancel:) primary:NO] x:390 y:50 w:110 h:32];
 }
 - (void)failure:(NSString *)message { self.taskTitle.stringValue=@"安装没有完成"; self.taskDetail.stringValue=message; self.percent.stringValue=@"需要处理"; }
 - (void)openInbox:(id)sender { NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/录音"]; [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:dir]]; }
@@ -199,24 +209,58 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     panel.allowedContentTypes=types;
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result){
         if(result!=NSModalResponseOK || !panel.URL) return;
-        NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/录音"];
-        [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
-        NSString *destination=[dir stringByAppendingPathComponent:panel.URL.lastPathComponent];
-        if([[NSFileManager defaultManager] fileExistsAtPath:destination]) {
-            NSString *stem=panel.URL.lastPathComponent.stringByDeletingPathExtension;
-            NSString *ext=panel.URL.pathExtension;
-            destination=[dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%lld.%@",stem,(long long)[NSDate date].timeIntervalSince1970,ext]];
-        }
-        NSError *error=nil;
-        if(![[NSFileManager defaultManager] copyItemAtURL:panel.URL toURL:[NSURL fileURLWithPath:destination] error:&error]) {
-            NSAlert *alert=[NSAlert new]; alert.messageText=@"无法加入这段录音"; alert.informativeText=error.localizedDescription ?: @"请稍后重试。"; [alert runModal]; return;
-        }
-        NSAlert *alert=[NSAlert new]; alert.messageText=@"录音已加入"; alert.informativeText=@"MeetingNotes 已开始处理，菜单栏小猫会显示进度。桌面上的原文件仍然保留。"; [alert addButtonWithTitle:@"知道了"]; [alert beginSheetModalForWindow:self.window completionHandler:nil];
+        [self enqueueRecording:panel.URL];
     }];
+}
+- (NSString *)processingBase {
+    NSString *source=NSProcessInfo.processInfo.environment[@"MEETINGNOTES_SOURCE_BASE"];
+    if(source.length && [[NSFileManager defaultManager] fileExistsAtPath:[source stringByAppendingPathComponent:@"watch_inbox.sh"]]) return source;
+    NSString *installed=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes"];
+    if([[NSFileManager defaultManager] fileExistsAtPath:[installed stringByAppendingPathComponent:@"watch_inbox.sh"]]) return installed;
+    NSString *bundleBase=[self base];
+    if([[NSFileManager defaultManager] fileExistsAtPath:[bundleBase stringByAppendingPathComponent:@"watch_inbox.sh"]]) return bundleBase;
+    return installed;
+}
+- (void)enqueueRecording:(NSURL *)sourceURL {
+    NSString *dir=[[self processingBase] stringByAppendingPathComponent:@"inbox"];
+    NSError *mkdirError=nil; [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:&mkdirError];
+    NSString *destination=[dir stringByAppendingPathComponent:sourceURL.lastPathComponent];
+    if([[NSFileManager defaultManager] fileExistsAtPath:destination]) {
+        NSString *stem=sourceURL.lastPathComponent.stringByDeletingPathExtension, *ext=sourceURL.pathExtension;
+        destination=[dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%lld%@%@",stem,(long long)[NSDate date].timeIntervalSince1970,ext.length?@".":@"",ext]];
+    }
+    NSError *error=mkdirError;
+    if(!error) [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:[NSURL fileURLWithPath:destination] error:&error];
+    if(error) { self.recordingStatus.stringValue=[NSString stringWithFormat:@"加入失败：%@",error.localizedDescription]; self.recordingStatus.textColor=NSColor.systemRedColor; NSBeep(); return; }
+    self.recordingStatus.stringValue=[NSString stringWithFormat:@"已加入“%@”，正在等待小猫处理…",sourceURL.lastPathComponent]; self.recordingStatus.textColor=NSColor.controlAccentColor;
+    NSString *script=[[self processingBase] stringByAppendingPathComponent:@"watch_inbox.sh"];
+    if([[NSFileManager defaultManager] isExecutableFileAtPath:script]) {
+        NSTask *kick=[NSTask new]; kick.executableURL=[NSURL fileURLWithPath:@"/bin/zsh"]; kick.arguments=@[script]; [kick launchAndReturnError:nil];
+    }
 }
 - (void)openKeyPage:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://platform.deepseek.com/api_keys"]]; }
 - (void)openGuide:(id)sender { NSString *base=[self base]; if(base) [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[base stringByAppendingPathComponent:@"docs/新手安装图文教程.md"]]]; }
 - (void)cancel:(id)sender { if(self.task.running)[self.task terminate]; [NSApp terminate:nil]; }
+@end
+
+@implementation MNDropView
+- (instancetype)init { if((self=[super init])) [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]]; return self; }
+- (BOOL)isFlipped { return YES; }
+- (void)drawRect:(NSRect)dirty {
+    NSColor *stroke=self.hovering?NSColor.controlAccentColor:NSColor.separatorColor;
+    NSBezierPath *path=[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(self.bounds,1,1) xRadius:12 yRadius:12];
+    [stroke setStroke]; path.lineWidth=self.hovering?2.5:1.5; CGFloat dash[]={7,5}; [path setLineDash:dash count:2 phase:0]; [path stroke];
+    NSDictionary *title=@{NSFontAttributeName:[NSFont systemFontOfSize:17 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.labelColor};
+    NSDictionary *hint=@{NSFontAttributeName:[NSFont systemFontOfSize:13],NSForegroundColorAttributeName:NSColor.secondaryLabelColor};
+    [@"拖放录音到这里" drawAtPoint:NSMakePoint(151,47) withAttributes:title]; [@"松开后立即加入处理队列" drawAtPoint:NSMakePoint(147,78) withAttributes:hint];
+}
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender { self.hovering=YES; [self setNeedsDisplay:YES]; return NSDragOperationCopy; }
+- (void)draggingExited:(id<NSDraggingInfo>)sender { self.hovering=NO; [self setNeedsDisplay:YES]; }
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
+    self.hovering=NO; [self setNeedsDisplay:YES];
+    NSArray<NSURL *> *urls=[sender.draggingPasteboard readObjectsForClasses:@[NSURL.class] options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}];
+    NSURL *url=urls.firstObject; if(!url || !url.isFileURL) return NO; [self.controller enqueueRecording:url]; return YES;
+}
 @end
 
 int main(void){ @autoreleasepool { NSApplication *app=NSApplication.sharedApplication; MNController *controller=[MNController new]; app.delegate=controller; [app setActivationPolicy:NSApplicationActivationPolicyRegular]; [app run]; } return 0; }

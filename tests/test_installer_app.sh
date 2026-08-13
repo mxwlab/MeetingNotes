@@ -21,5 +21,9 @@ grep -Fq 'bezelColor=self.customProviderSelected' "$ROOT/installer/MeetingNotesI
 grep -Fq 'x:40 y:246 w:120 h:20' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service title position"; exit 1; }
 grep -Fq 'x:40 y:164 w:260 h:52' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service card spacing"; exit 1; }
 grep -Fq 'panel.prompt=@"开始处理"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording chooser confirmation"; exit 1; }
-grep -Fq 'copyItemAtURL:panel.URL' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording is not copied safely"; exit 1; }
+grep -Fq '[self enqueueRecording:panel.URL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL chooser does not enqueue recording"; exit 1; }
+grep -Fq 'copyItemAtURL:sourceURL' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording is not copied safely"; exit 1; }
+grep -Fq 'registerForDraggedTypes:@[NSPasteboardTypeFileURL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording drop target"; exit 1; }
+grep -Fq 'stringByAppendingPathComponent:@"inbox"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording queue path"; exit 1; }
+grep -Fq 'kick.arguments=@[script]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording processing kick"; exit 1; }
 echo PASS
