@@ -90,8 +90,11 @@ def notify(message, title="会议纪要"):
 class MeetingNotesApp(rumps.App):
     def __init__(self):
         super().__init__("MeetingNotes", title=IDLE_TITLE, quit_button="退出")
-        self._alerted_marker = None
-        self._failed = False
+        initial_outcome = latest_outcome(_read(WATCH_LOG))
+        self._alerted_marker = (
+            initial_outcome.marker if initial_outcome.result == "fail" else None
+        )
+        self._failed = initial_outcome.result == "fail"
         self.fail_item = rumps.MenuItem(
             "⚠️ 上次处理失败 · 点此检查服务设置",
             callback=self.on_settings_deepseek,
@@ -104,6 +107,7 @@ class MeetingNotesApp(rumps.App):
             rumps.MenuItem("使用 DeepSeek…", callback=self.on_settings_deepseek),
             rumps.MenuItem("使用其他兼容服务…", callback=self.on_settings_custom),
         ]
+        self._show_fail_item(self._failed)
 
     @rumps.timer(2)
     def tick(self, _):
