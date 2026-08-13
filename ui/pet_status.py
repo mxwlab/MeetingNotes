@@ -29,6 +29,11 @@ def title_from_pet_state(text: str) -> str:
     return IDLE_TITLE
 
 
+def should_show_status_item(title: str, failed: bool) -> bool:
+    """空闲时隐藏；处理进行中或失败时显示。"""
+    return failed or title != IDLE_TITLE
+
+
 def latest_outcome(log_text: str) -> Outcome:
     """取日志中最后一个终态事件(完成/失败)。失败的 marker=该行原文(含时间戳,事件唯一)。"""
     for line in reversed((log_text or "").splitlines()):

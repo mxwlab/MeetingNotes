@@ -3,7 +3,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from ui.pet_status import (title_from_pet_state, IDLE_TITLE,
-                           latest_outcome, should_alert, Outcome)  # noqa: E402
+                           latest_outcome, should_alert, Outcome,
+                           should_show_status_item)  # noqa: E402
 
 
 class TitleTests(unittest.TestCase):
@@ -22,6 +23,12 @@ class TitleTests(unittest.TestCase):
     def test_empty_or_garbage_is_idle(self):
         self.assertEqual(title_from_pet_state(""), IDLE_TITLE)
         self.assertEqual(title_from_pet_state("???"), IDLE_TITLE)
+
+    def test_status_item_hidden_only_when_idle(self):
+        self.assertFalse(should_show_status_item(IDLE_TITLE, failed=False))
+        self.assertTrue(should_show_status_item("🎙️ 42%", failed=False))
+        self.assertTrue(should_show_status_item("📝 生成中", failed=False))
+        self.assertTrue(should_show_status_item(IDLE_TITLE, failed=True))
 
 
 OK_LOG = "[2026-08-11 23:40:32] 开始处理: 权限讨论.m4a\n[2026-08-11 23:41:00] ✅ 完成: 权限讨论.m4a\n"
