@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 
-IDLE_TITLE = "🐱 空闲"
+IDLE_TITLE = "🐱"
 FAIL_TITLE = "⚠️ 处理失败"
 
 _DONE_RE = re.compile(r"✅ 完成:\s*(.+?)\s*$")
@@ -27,11 +27,6 @@ def title_from_pet_state(text: str) -> str:
     if state == "summarize":
         return "📝 生成中"
     return IDLE_TITLE
-
-
-def should_show_status_item(title: str, failed: bool) -> bool:
-    """空闲时隐藏；处理进行中或失败时显示。"""
-    return failed or title != IDLE_TITLE
 
 
 def latest_outcome(log_text: str) -> Outcome:

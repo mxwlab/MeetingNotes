@@ -25,7 +25,6 @@ from ui.pet_status import (  # noqa: E402
     IDLE_TITLE,
     latest_outcome,
     should_alert,
-    should_show_status_item,
     title_from_pet_state,
 )
 from ui.provider_config import (  # noqa: E402
@@ -137,9 +136,6 @@ class MeetingNotesApp(rumps.App):
             self._show_fail_item(False)
         state_title = title_from_pet_state(_read(PET_STATE))
         self.title = FAIL_TITLE if self._failed else state_title
-        self._nsapp.nsstatusitem.setVisible_(
-            should_show_status_item(state_title, self._failed)
-        )
 
     def _show_fail_item(self, on):
         key = self.fail_item.title
