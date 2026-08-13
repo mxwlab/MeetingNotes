@@ -120,6 +120,11 @@ class MeetingNotesApp(rumps.App):
         ]
         self._show_fail_item(self._failed)
 
+    @rumps.events.before_start
+    def restore_visibility(self):
+        """撤销旧版本可能被 macOS 保留的隐藏状态。"""
+        self._nsapp.nsstatusitem.setVisible_(True)
+
     @rumps.timer(2)
     def tick(self, _):
         outcome = latest_outcome(_read(WATCH_LOG))
