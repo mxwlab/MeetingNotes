@@ -3,6 +3,7 @@ set -eu
 
 BASE="${0:A:h:h}"
 OUTPUT="${1:-$BASE/dist/MeetingNotes 安装器.app}"
+APP_VERSION="${MEETINGNOTES_APP_VERSION:-0.2.0}"   # 发布时可传 MEETINGNOTES_APP_VERSION 对齐版本
 CONTENTS="$OUTPUT/Contents"
 MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
@@ -13,7 +14,7 @@ clang -fobjc-arc -O2 -framework Cocoa -framework UniformTypeIdentifiers \
   -mmacosx-version-min=14.0 \
   "$BASE/installer/MeetingNotesInstaller.m" \
   -o "$MACOS/MeetingNotes Installer"
-cat > "$CONTENTS/Info.plist" <<'PLIST'
+cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -23,7 +24,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>MeetingNotes 安装器</string>
 <key>CFBundleIconFile</key><string>MeetingNotes</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
+<key>CFBundleVersion</key><string>${APP_VERSION}</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

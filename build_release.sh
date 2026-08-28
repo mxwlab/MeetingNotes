@@ -32,7 +32,6 @@ files=(
   "requirements.txt"
   "requirements-ui.txt"
   "setup_ui.py"
-  "assets/MeetingNotes.icns"
   "installer/MeetingNotesInstaller.m"
   "process.py"
   "pet.py"
@@ -76,7 +75,9 @@ for relative_path in "${files[@]}"; do
 done
 
 # 制作方预编译原生安装器；朋友运行发布包时不需要 Xcode 或编译工具。
-"$BASE/scripts/build_installer_app.sh" "$package/MeetingNotes 安装器.app" >/dev/null
+# 版本号与本次发布对齐，避免安装器里的 CFBundleShortVersionString 落后。
+MEETINGNOTES_APP_VERSION="$VERSION" \
+  "$BASE/scripts/build_installer_app.sh" "$package/MeetingNotes 安装器.app" >/dev/null
 
 # 固定时间戳并禁止 macOS 扩展属性，确保同一源码重复构建得到相同 zip。
 find "$package" -exec touch -h -t 202001010000 {} +
