@@ -2,6 +2,8 @@
 import os
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 
 import objc
@@ -55,7 +57,6 @@ class DropView(NSView):
         return self
 
     def drawRect_(self, _):
-        NSColor.controlAccentColor() if self.hovering else NSColor.separatorColor()
         stroke = NSColor.controlAccentColor() if self.hovering else NSColor.separatorColor()
         stroke.setStroke()
         path = __import__("AppKit").NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(self.bounds(), 14, 14)
@@ -150,18 +151,35 @@ class MainDelegate(NSObject):
         subprocess.run(["open", str(INBOX)], check=False)
 
     def enqueue_(self, source):
+        """把录音复制进 inbox。复制可能耗时（大文件），放后台线程做，避免卡住界面。"""
         try:
             INBOX.mkdir(parents=True, exist_ok=True)
             target = INBOX / source.name
             if target.exists():
-                target = INBOX / f"{source.stem}-{int(__import__('time').time())}{source.suffix}"
-            shutil.copy2(source, target)
-            self.status.setStringValue_(f"已加入：{source.name}，正在等待处理…")
-            watcher = BASE / "watch_inbox.sh"
-            if watcher.exists():
-                subprocess.Popen(["/bin/zsh", str(watcher)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                target = INBOX / f"{source.stem}-{int(time.time())}{source.suffix}"
         except OSError as exc:
             self.status.setStringValue_(f"加入失败：{exc}")
+            return
+        self.status.setStringValue_(f"正在复制：{source.name}…")
+        threading.Thread(target=self._copy_worker, args=(source, target), daemon=True).start()
+
+    def _copy_worker(self, source, target):
+        # 后台线程不能碰 AppKit UI，完成后切回主线程更新状态并触发 watcher
+        try:
+            shutil.copy2(source, target)
+            self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                "enqueueDone:", f"已加入：{source.name}，正在等待处理…", False)
+        except OSError as exc:
+            self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                "enqueueDone:", f"加入失败：{exc}", False)
+
+    def enqueueDone_(self, message):
+        self.status.setStringValue_(message)
+        if not message.startswith("加入失败"):
+            watcher = BASE / "watch_inbox.sh"
+            if watcher.exists():
+                subprocess.Popen(["/bin/zsh", str(watcher)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":
