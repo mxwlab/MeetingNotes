@@ -3,6 +3,21 @@ set -eu
 
 SOURCE_BASE="${0:A:h:h}"
 source "$SOURCE_BASE/scripts/installer_progress.sh"
+
+# 安装进度/信息都写到安装器 GUI 的 stdout 管道。窗口关闭或卡死导致读端断裂时，任何一次
+# echo/printf 都会因 SIGPIPE 或 set -e 把安装静默中止（真实事故：模型步后进程消失，
+# 后台服务/菜单栏/AirDrop 全没装）。安装本身绝不能被“报告进度失败”打断，两层防护：
+#   1) trap '' PIPE：不让 SIGPIPE 杀进程；
+#   2) GUI 模式把 stdout 接到一个“只读不断”的转发器：它持续读走本进程所有输出并尽力转发
+#      给窗口，自身也忽略 SIGPIPE，下游断了就丢弃——于是 bootstrap 侧 stdout 永不破裂。
+trap '' PIPE
+if [[ "${MEETINGNOTES_PROGRESS_JSON:-false}" == true \
+   && "${MEETINGNOTES_STDOUT_DRAINED:-false}" != true ]]; then
+  exec > >(trap '' PIPE; while IFS= read -r __mn_line; do
+    print -r -- "$__mn_line" 2>/dev/null || true
+  done)
+  export MEETINGNOTES_STDOUT_DRAINED=true
+fi
 INSTALL_DIR="${MEETINGNOTES_INSTALL_DIR:-$HOME/MeetingNotes}"
 os_name="${MEETINGNOTES_UNAME_S:-$(uname -s)}"
 arch="${MEETINGNOTES_UNAME_M:-$(uname -m)}"
@@ -120,12 +135,15 @@ run_model_with_progress() {
 
   local expected_bytes="${QWEN_EXPECTED_BYTES:-2362232012}"
   local model_dir="$BASE/models/qwen3-asr-1.7b-8bit"
-  local started now elapsed downloaded rate remaining percent detail pid rc
+  local started now elapsed downloaded downloaded_kb rate remaining percent detail pid rc
   started="$(date +%s)"
   run_logged "$BASE/scripts/provision_models.sh" &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
-    downloaded=$(( $(du -sk "$model_dir" 2>/dev/null | awk '{print $1}' || echo 0) * 1024 ))
+    # 模型目录可能还没被 provision_models 建好，du 返回空。必须兜底为 0，否则
+    # `$(( 空 * 1024 ))` 会“bad math expression”在 set -e 下中止整个安装（第三类静默中止）。
+    downloaded_kb="$(du -sk "$model_dir" 2>/dev/null | awk '{print $1}')"
+    downloaded=$(( ${downloaded_kb:-0} * 1024 ))
     (( downloaded > expected_bytes )) && downloaded="$expected_bytes"
     percent=$((39 + downloaded * 47 / expected_bytes))
     now="$(date +%s)"; elapsed=$((now - started))
@@ -254,7 +272,10 @@ mn_progress step_done provider 7 "AI 服务已连接" "设置只保存在这台 
 
 step "准备 Python"
 mn_progress step_start python 8 "准备运行环境" "首次安装通常需要 1–3 分钟"
-run_logged "$BASE/scripts/fetch_python.sh" || fail "Python 运行环境准备失败"
+# 下 Python + pip 装 torch/mlx 等重依赖要跑几分钟；用心跳包装让窗口持续显示已用时长，
+# 否则进度条会定格在 8% 像假死（run_logged 把细节写日志，不往 GUI 发事件）。
+mn_run_with_heartbeat python 8 "准备运行环境" "正在下载并安装处理依赖" \
+  -- run_logged "$BASE/scripts/fetch_python.sh" || fail "Python 运行环境准备失败"
 mn_progress step_done python 32 "运行环境已准备好" "Python 与处理依赖安装完成"
 export MEETINGNOTES_PYTHON="$BASE/venv/bin/python"
 
@@ -285,7 +306,9 @@ mn_progress step_done service 91 "后台服务已启动" "正在等待新录音"
 
 step "安装菜单栏"
 mn_progress step_start menubar 92 "安装菜单栏小猫" "用于显示转录进度和完成提醒"
-run_logged "$BASE/scripts/provision_menubar.sh" \
+# 构建菜单栏 App（py2app）也要一两分钟，同样用心跳避免窗口假死。
+mn_run_with_heartbeat menubar 92 "安装菜单栏小猫" "正在构建菜单栏 App" \
+  -- run_logged "$BASE/scripts/provision_menubar.sh" \
   || fail "菜单栏 App 安装失败"
 mn_progress step_done menubar 98 "菜单栏小猫已启动" "以后登录时会自动出现"
 
