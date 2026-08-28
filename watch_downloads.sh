@@ -48,9 +48,17 @@ wait_until_stable() {
   done
 }
 
-# 防并发
-if ! mkdir "$LOCK" 2>/dev/null; then exit 0; fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+# 防并发：锁里记录持有者 PID；持有进程已退出（残留锁）则接管，否则跳过。
+if ! mkdir "$LOCK" 2>/dev/null; then
+  holder="$(cat "$LOCK/pid" 2>/dev/null || true)"
+  if [[ -n "$holder" ]] && kill -0 "$holder" 2>/dev/null; then
+    exit 0
+  fi
+  rm -rf "$LOCK" 2>/dev/null || exit 0
+  mkdir "$LOCK" 2>/dev/null || exit 0
+fi
+print -r -- "$$" > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
 
 files=()
 if (( $# > 0 )); then

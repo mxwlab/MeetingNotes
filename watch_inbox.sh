@@ -28,18 +28,22 @@ fi
 
 log() { print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
-# 防并发：拿不到锁说明已有实例在跑。锁超过 2 小时视为残留，清掉。
+# 防并发：拿不到锁说明已有实例在跑。锁里记录持有者 PID：持有进程还活着就跳过；
+# 进程已退出（崩溃/被杀留下的残留锁）则接管继续，避免文件一直没人处理。
+# （不再用“超过 2 小时视为残留”的时间启发式：首次处理会补下兜底模型，
+# 合法运行可能超过 2 小时，按时间误判会并发处理同一批文件。）
 if ! mkdir "$LOCK" 2>/dev/null; then
-  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then
-    log "发现残留锁(>2h)，清除后继续"
-    rmdir "$LOCK" 2>/dev/null
-    mkdir "$LOCK" 2>/dev/null || { log "无法获取锁，退出"; exit 0; }
-  else
-    log "已有实例在运行，跳过本次触发"
+  holder="$(cat "$LOCK/pid" 2>/dev/null || true)"
+  if [[ -n "$holder" ]] && kill -0 "$holder" 2>/dev/null; then
+    log "已有实例在运行（PID $holder），跳过本次触发"
     exit 0
   fi
+  log "发现残留锁（持有进程已退出），清除后继续"
+  rm -rf "$LOCK" 2>/dev/null || { log "无法获取锁，退出"; exit 0; }
+  mkdir "$LOCK" 2>/dev/null || { log "无法获取锁，退出"; exit 0; }
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+print -r -- "$$" > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
 
 # 不再用扩展名白名单挑文件——那会让 .aiff/.mov/.opus/微信语音等被无声忽略、
 # 「拖进去没反应」无从排查。改为任何非隐藏普通文件都交给 process.py，由内置 ffmpeg
