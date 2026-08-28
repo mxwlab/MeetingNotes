@@ -2,7 +2,8 @@
 import sys, os, datetime, shutil, subprocess, json, re, string, wave, math, tempfile, threading, time
 from collections import Counter
 
-# 国内直连 huggingface.co 不稳定，默认走镜像（已设 HF_ENDPOINT 时不覆盖）
+# 显式固定 HF 官方源（已设 HF_ENDPOINT 时不覆盖），避免环境里残留别的镜像设置导致行为不一致；
+# 国内直连 huggingface.co 不稳时可自行 export HF_ENDPOINT=https://hf-mirror.com
 os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
 
 from openai import OpenAI
@@ -54,10 +55,18 @@ LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com")
 # 而推理模型（如 deepseek-v4-flash）会把 token 预算耗在推理上导致正文为空。
 LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
 
-client = OpenAI(
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url=LLM_BASE_URL,
-)
+_client = None
+def _get_client():
+    """惰性创建 OpenAI client：没配 API Key 时只在真正调用 LLM 时报错，
+    而不是模块 import 就崩（否则无 Key 环境连调试/单测都进不来）。"""
+    global _client
+    if _client is None:
+        key = os.environ.get("DEEPSEEK_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "未找到 DEEPSEEK_API_KEY（请确认 config.local.sh 已配置，或设置环境变量后重试）")
+        _client = OpenAI(api_key=key, base_url=LLM_BASE_URL)
+    return _client
 
 # whisper 中文幻觉词（静音/噪声段容易吐这些视频平台口水话）
 _HALLU = ["点赞", "订阅", "转发", "打赏", "明镜", "点点栏目", "字幕志愿者", "感谢观看",
@@ -79,14 +88,15 @@ def log(msg):
 
 def notify(message, title="会议纪要", sound="Glass"):
     """弹一条 macOS 桌面通知，失败也不影响主流程。
-    优先用 terminal-notifier（从 launchd 后台弹更可靠），没有则回退 osascript。"""
+    优先用 terminal-notifier（从 launchd 后台弹更可靠），没有或执行失败则回退 osascript。"""
     tn = shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier"
     if os.path.exists(tn):
         try:
-            subprocess.run([tn, "-title", title, "-message", message, "-sound", sound,
-                            "-group", "meetingnotes"],
-                           check=False, capture_output=True, timeout=10)
-            return
+            r = subprocess.run([tn, "-title", title, "-message", message, "-sound", sound,
+                                "-group", "meetingnotes"],
+                               check=False, capture_output=True, timeout=10)
+            if r.returncode == 0:
+                return
         except Exception:
             pass
     try:
@@ -223,10 +233,15 @@ def transcribe_whisper(wav_path):
     text = "".join(s["text"] for s in segs).strip()
     return text or (result.get("text") or "").strip()
 
-def _ask(system, user, max_tokens=4000):
+def _ask(system, user, max_tokens=4000, retries=2):
     # LLM 调用是阻塞的，慢模型下可能几分钟无输出，用户会以为卡死(见测试反馈)。
     # 起个心跳线程，每 30 秒报一次“还在等、已等了多久”，让日志看着有生命体征。
-    interval = float(os.environ.get("MEETINGNOTES_HEARTBEAT_SECS", "30"))
+    try:
+        interval = float(os.environ.get("MEETINGNOTES_HEARTBEAT_SECS", "30"))
+    except ValueError:
+        interval = 30.0
+    if interval <= 0:
+        interval = 30.0
     stop = threading.Event()
     started = time.monotonic()
     def _heartbeat():
@@ -235,14 +250,25 @@ def _ask(system, user, max_tokens=4000):
     hb = threading.Thread(target=_heartbeat, daemon=True)
     hb.start()
     try:
-        resp = client.chat.completions.create(
-            model=LLM_MODEL, temperature=0.3, max_tokens=max_tokens,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        )
+        client = _get_client()   # 无 Key 的明确报错在这里抛，不重试
+        last_error = None
+        for attempt in range(retries + 1):
+            if attempt:
+                log(f"  …LLM 调用异常，第 {attempt}/{retries} 次重试：{str(last_error)[:120]}")
+                time.sleep(2 * attempt)
+            try:
+                resp = client.chat.completions.create(
+                    model=LLM_MODEL, temperature=0.3, max_tokens=max_tokens,
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                )
+                c = resp.choices[0].message.content or ""
+                return re.sub(r"<think>.*?</think>", "", c, flags=re.S).strip()
+            except Exception as e:
+                last_error = e
+                log(f"  …LLM 调用异常: {str(e)[:120]}")
     finally:
         stop.set()
-    c = resp.choices[0].message.content or ""
-    return re.sub(r"<think>.*?</think>", "", c, flags=re.S).strip()
+    raise last_error if last_error is not None else RuntimeError("LLM 调用失败")
 
 def _chunk_text(text, size):
     """按长度粗分块（在句末标点就近切），供 LLM 加工超长文本。"""
@@ -282,11 +308,17 @@ def update_glossary(entities):
         if e and e not in terms:
             terms.append(e)
     terms = terms[-300:]
+    # 先写临时文件再 os.replace 原子落盘，避免写到一半崩溃留下截断的术语库
+    tmp = f"{_GLOSSARY_PATH}.tmp.{os.getpid()}"
     try:
-        with open(_GLOSSARY_PATH, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             f.write("\n".join(terms) + "\n")
+        os.replace(tmp, _GLOSSARY_PATH)
     except OSError:
-        pass
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 def _glossary_hint():
     """把术语库拼成给 LLM 的纠错提示；空库返回空串。"""
@@ -382,7 +414,7 @@ SKIPPED = os.path.join(BASE, "skipped")   # 无法解码的文件挪到这里，
 def main(audio_path):
     if not os.path.exists(audio_path):
         log(f"文件不存在: {audio_path}"); return
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")  # 含微秒：同名录音同秒重试也不会覆盖
     name = os.path.splitext(os.path.basename(audio_path))[0]
 
     # 开始/进度靠桌面小猫显示，不再发系统通知（只在完成/失败时通知，兜底离开工位的情况）
@@ -399,6 +431,13 @@ def main(audio_path):
         try:
             subprocess.run([FFMPEG, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav],
                            check=True, capture_output=True)
+        except FileNotFoundError:
+            # 项目内/系统的 ffmpeg 都不存在：是安装问题不是文件问题，文件保留在 inbox，
+            # 修好 ffmpeg 后下次触发即可处理；给出明确提示而不是笼统“处理失败”。
+            log(f"缺少音频解码工具 ffmpeg（{FFMPEG}），请安装或配置 FFMPEG 后重试: {name}")
+            pet_stop()
+            notify(f"⚠️ 缺少音频解码工具 ffmpeg，无法处理：{name}")
+            return
         except subprocess.CalledProcessError:
             log(f"无法解码为音频，可能不是受支持的音视频文件: {name}")
             pet_stop()
@@ -411,21 +450,49 @@ def main(audio_path):
             return
 
         transcript = transcribe(wav)                     # Qwen 主 / whisper 兜底(纯文本)
+
+        # 空转录（静音/纯噪声/无法识别）：不再空跑两次 LLM 白花钱，挪进 skipped 避免
+        # 每次触发 inbox 都重复处理同一段无内容录音。
+        if not (transcript or "").strip():
+            log(f"未识别到语音内容（可能是静音/纯噪声），跳过处理: {name}")
+            pet_stop()
+            notify(f"⚠️ 未能识别到语音，未处理：{name}（可能是静音或纯噪声）")
+            os.makedirs(SKIPPED, exist_ok=True)
+            try:
+                shutil.move(audio_path, os.path.join(SKIPPED, os.path.basename(audio_path)))
+            except OSError:
+                pass
+            return
         pet_set("summarize", name, 10)
 
         raw_path = os.path.join(OUTPUT, f"{stamp}_{name}_转录.txt")
         with open(raw_path, "w", encoding="utf-8") as f:
             f.write(transcript)
 
-        tidy = make_segmented_transcript(transcript)     # 分段整理稿
-        tidy_path = os.path.join(OUTPUT, f"{stamp}_{name}_整理稿.md")
-        with open(tidy_path, "w", encoding="utf-8") as f:
-            f.write(tidy + "\n")
+        # 整理稿/纪要是 LLM 阶段：单步失败（网络/服务/欠费）不应丢掉已生成的成果。
+        # 已写出的转录/整理稿保留，录音留在 inbox，下次触发会重试；日志里说清失败步骤。
+        tidy = ""
+        try:
+            tidy = make_segmented_transcript(transcript)     # 分段整理稿
+            tidy_path = os.path.join(OUTPUT, f"{stamp}_{name}_整理稿.md")
+            with open(tidy_path, "w", encoding="utf-8") as f:
+                f.write(tidy + "\n")
+        except Exception as e:
+            log(f"生成整理稿失败({str(e)[:80]})，已保留转录，录音留在录音目录待重试")
+            pet_stop()
+            notify(f"⚠️ 整理稿生成失败：{name}，录音保留在录音目录")
+            return
 
-        notes = summarize_minutes(transcript)             # 按议题纪要
-        out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(notes)
+        try:
+            notes = summarize_minutes(transcript)             # 按议题纪要
+            out_path = os.path.join(OUTPUT, f"{stamp}_{name}_纪要.md")
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(notes)
+        except Exception as e:
+            log(f"生成纪要失败({str(e)[:80]})，已保留转录与整理稿，录音留在录音目录待重试")
+            pet_stop()
+            notify(f"⚠️ 纪要生成失败：{name}，录音保留在录音目录")
+            return
         update_glossary(_section_items(notes, "关键实体"))  # 关键实体并入术语库,反哺后续转录纠错
         log(f"完成: {out_path}")
         pet_summary_progress(98)
@@ -433,7 +500,12 @@ def main(audio_path):
         saved = save_to_obsidian(name, notes, os.path.basename(audio_path), transcript_md=tidy)
         pet_summary_progress(100)
 
-        shutil.move(audio_path, os.path.join(DONE, os.path.basename(audio_path)))
+        # 处理完的录音挪进 done/；同名已存在（跨天重复录音）时加时间戳后缀，避免覆盖旧录音
+        done_dest = os.path.join(DONE, os.path.basename(audio_path))
+        if os.path.exists(done_dest):
+            done_dest = os.path.join(
+                DONE, f"{name} {stamp}{os.path.splitext(os.path.basename(audio_path))[1]}")
+        shutil.move(audio_path, done_dest)
         notify(f"✅ 纪要已生成{'并存入 Obsidian' if saved else ''}：{name}")
         pet_set("done", name)
     finally:

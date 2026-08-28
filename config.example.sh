@@ -4,4 +4,4 @@ export OBSIDIAN_DIR=""            # 留空=不复制到 Obsidian；填 vault 内
 
 # 高级选项：默认无需设置；仅在切换到其他 OpenAI 兼容服务时取消注释。
 # export LLM_BASE_URL="https://api.deepseek.com"
-# export LLM_MODEL="deepseek-v4-flash"
+# export LLM_MODEL="deepseek-chat"
