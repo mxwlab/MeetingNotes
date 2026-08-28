@@ -46,9 +46,10 @@ for required in \
   'MeetingNotes/requirements-ui.txt' \
   'MeetingNotes/setup_ui.py' \
   'MeetingNotes/installer/MeetingNotesInstaller.m' \
+  'MeetingNotes/installer/MeetingNotesPet.m' \
   'MeetingNotes/scripts/build_main_app.sh' \
+  'MeetingNotes/scripts/build_pet_app.sh' \
   'MeetingNotes/ui/menubar.py' \
-  'MeetingNotes/ui/main.py' \
   'MeetingNotes/ui/pet_status.py' \
   'MeetingNotes/ui/provider_config.py' \
   'MeetingNotes/launchd/com.moxiuwen.meetingnotes.menubar.plist.template'; do
@@ -56,6 +57,10 @@ for required in \
 done
 if grep -Fqi 'fluidaudio' "$listing"; then
   echo "FAIL FluidAudio should no longer be packaged"; exit 1
+fi
+# 已废弃的 Python 主窗口（丑的 image #3）与其打包脚本不得再进发布包
+if grep -Eq '(^|/)(ui/main\.py|setup_main\.py)$' "$listing"; then
+  echo "FAIL 废弃的 Python 主窗口 ui/main.py/setup_main.py 不应再被打包"; exit 1
 fi
 
 if grep -E '(^|/)(\.git|config\.local\.sh|venv|runtime|models|tools|inbox|output|done|logs|__pycache__)(/|$)' "$listing"; then

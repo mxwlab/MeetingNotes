@@ -21,6 +21,7 @@ fi
   cd "$BASE"
   "$UI_PYTHON" setup_ui.py py2app -A --dist-dir "$BASE/dist-menubar"
   "$BASE/scripts/build_main_app.sh" "$BASE/dist/MeetingNotes.app"
+  "$BASE/scripts/build_pet_app.sh" "$BASE/dist/MeetingNotesPet.app"
 )
 
 [[ -x "$BASE/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" ]] || {
@@ -29,6 +30,10 @@ fi
 }
 [[ -x "$BASE/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || {
   echo "主界面 App 构建失败" >&2
+  exit 1
+}
+[[ -x "$BASE/dist/MeetingNotesPet.app/Contents/MacOS/MeetingNotesPet" ]] || {
+  echo "桌面进度小猫 App 构建失败" >&2
   exit 1
 }
 

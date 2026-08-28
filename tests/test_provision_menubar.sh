@@ -16,8 +16,9 @@ cp "$ROOT/launchd/com.moxiuwen.meetingnotes.menubar.plist.template" "$project/la
 cp "$ROOT/setup_ui.py" "$ROOT/requirements-ui.txt" "$project/"
 mkdir -p "$project/assets"
 cp "$ROOT/assets/MeetingNotes.icns" "$project/assets/"
-cp "$ROOT/installer/MeetingNotesInstaller.m" "$project/installer/" 2>/dev/null || { mkdir -p "$project/installer"; cp "$ROOT/installer/MeetingNotesInstaller.m" "$project/installer/"; }
-cp "$ROOT/scripts/build_main_app.sh" "$project/scripts/"
+mkdir -p "$project/installer"
+cp "$ROOT/installer/MeetingNotesInstaller.m" "$ROOT/installer/MeetingNotesPet.m" "$project/installer/"
+cp "$ROOT/scripts/build_main_app.sh" "$ROOT/scripts/build_pet_app.sh" "$project/scripts/"
 cp "$ROOT/ui/"*.py "$project/ui/"
 ln -s "$ROOT/venv/bin/python" "$project/venv/bin/python"
 ln -s "$ROOT/venv-ui" "$project/venv-ui"
@@ -41,6 +42,7 @@ app="$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNote
 plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
 [[ -x "$app" ]] || { echo "FAIL app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || { echo "FAIL main app missing"; exit 1; }
+[[ -x "$project/dist/MeetingNotesPet.app/Contents/MacOS/MeetingNotesPet" ]] || { echo "FAIL pet app missing"; exit 1; }
 [[ -f "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon missing"; exit 1; }
 [[ ! -L "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon is symlink"; exit 1; }
 grep -Fqx "${project:A}" "$home/Library/Application Support/MeetingNotes/base" || { echo "FAIL app base marker"; exit 1; }

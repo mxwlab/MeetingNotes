@@ -108,7 +108,8 @@ def notify(message, title="会议纪要", sound="Glass"):
         pass
 
 PET_STATE = os.path.join(BASE, ".pet_state")
-PET_SCRIPT = os.path.join(BASE, "pet.py")
+# 桌面进度小猫改为原生 App（白底原生样式，与主界面统一）；旧的 python pet.py 已删除。
+PET_APP = os.path.join(BASE, "dist", "MeetingNotesPet.app", "Contents", "MacOS", "MeetingNotesPet")
 _pet_name = ""
 
 def pet_set(state, name="", pct=None):
@@ -127,16 +128,19 @@ def pet_summary_progress(pct):
     pet_set("summarize", _pet_name, pct)
 
 def pet_launch(name):
-    """启动桌面小猫（detached，不阻塞主流程；失败静默）。"""
+    """启动原生桌面小猫（detached，不阻塞主流程；失败静默）。"""
     global _pet_name
     _pet_name = name
     try:
-        subprocess.run(["pkill", "-f", PET_SCRIPT], capture_output=True)  # 关掉上一只(如"完成"未关的)
+        subprocess.run(["pkill", "-f", PET_APP], capture_output=True)  # 关掉上一只(如"完成"未关的)
     except Exception:
         pass
     pet_set("transcribe", name, 0)
+    if not os.path.exists(PET_APP):
+        return   # 没构建原生小猫就跳过——小猫是锦上添花，绝不拖垮处理
     try:
-        subprocess.Popen([sys.executable, PET_SCRIPT],
+        env = {**os.environ, "MEETINGNOTES_BASE": BASE}   # 让小猫读对 .pet_state 与品牌图标
+        subprocess.Popen([PET_APP], env=env,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          start_new_session=True)
     except Exception:
@@ -145,7 +149,7 @@ def pet_launch(name):
 def pet_stop():
     """关掉桌面小猫（中止/失败/不支持格式时收尾，别留一只僵尸猫）。"""
     try:
-        subprocess.run(["pkill", "-f", PET_SCRIPT], capture_output=True)
+        subprocess.run(["pkill", "-f", PET_APP], capture_output=True)
     except Exception:
         pass
 
