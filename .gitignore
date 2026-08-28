@@ -41,3 +41,7 @@ skipped/*
 .DS_Store
 glossary.local.txt
 people.local.txt
+
+# 品牌图标/吉祥物探索稿（最终采用 assets/meetingnotes-icon.png，候选变体不入库）
+assets/meetingnotes-icon-*.png
+assets/meetingnotes-mascot-*.png
