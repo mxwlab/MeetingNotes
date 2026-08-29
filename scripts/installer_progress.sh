@@ -27,15 +27,20 @@ mn_progress() {
 mn_run_with_heartbeat() {
   local id="$1" percent="$2" title="$3" detail_prefix="$4"
   shift 4
+  # 可选的 ETA 粗估提示（第 5 个位置参数，在 -- 之前）；不传则只显示已用时长
+  local eta=""
+  if [[ "${1:-}" != "--" ]]; then eta="$1"; shift; fi
   [[ "${1:-}" == "--" ]] && shift
   local interval="${MN_HEARTBEAT_SECS:-2}"
-  local started elapsed pid rc=0
+  local started elapsed pid rc=0 detail
   started="$(date +%s)"
   "$@" &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
     elapsed=$(( $(date +%s) - started ))
-    mn_progress progress "$id" "$percent" "$title" "$detail_prefix · 已用 ${elapsed}s · 请勿关闭"
+    detail="$detail_prefix · 已用 ${elapsed}s"
+    [[ -n "$eta" ]] && detail="$detail · $eta"
+    mn_progress progress "$id" "$percent" "$title" "$detail"
     sleep "$interval"
   done
   wait "$pid" || rc=$?

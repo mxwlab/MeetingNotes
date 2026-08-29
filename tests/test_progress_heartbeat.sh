@@ -16,6 +16,14 @@ ticks="$(print -r -- "$out" | grep -c '@@MEETINGNOTES@@')"
 print -r -- "$out" | grep -q '已用' \
   || { echo "FAIL 心跳详情未显示已用时长"; exit 1; }
 
+# 行为一·补：传入 ETA 提示时，详情应是「已用 Xs · <ETA>」
+out_eta="$(MEETINGNOTES_PROGRESS_JSON=true MN_HEARTBEAT_SECS=0.2 \
+  mn_run_with_heartbeat python 8 "准备运行环境" "正在安装处理依赖" "预计还需约 1–3 分钟" -- sleep 0.5)"
+print -r -- "$out_eta" | grep -q '已用' \
+  || { echo "FAIL 带 ETA 时仍应显示已用时长"; exit 1; }
+print -r -- "$out_eta" | grep -q '预计还需约 1–3 分钟' \
+  || { echo "FAIL ETA 提示未出现在心跳详情里"; exit 1; }
+
 # 行为二：如实返回被包裹命令的退出码（失败要能被 || fail 捕获）
 rc=0
 MEETINGNOTES_PROGRESS_JSON=true MN_HEARTBEAT_SECS=0.2 \

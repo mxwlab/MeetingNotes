@@ -32,6 +32,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSButton *getKeyButton;
 @property NSTextField *keyHelp;
 @property NSTextField *recordingStatus;
+@property NSURL *pendingRecording;   // 已选中、待点“开始解析”的录音
 @end
 
 @implementation MNController
@@ -65,6 +66,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSString *preview=NSProcessInfo.processInfo.environment[@"MEETINGNOTES_INSTALLER_PREVIEW"];
     if([preview isEqual:@"installing"]) [self showInstalling];
     if([preview isEqual:@"complete"]) [self showComplete];
+    if([preview isEqual:@"pending"]) [self selectRecording:[NSURL fileURLWithPath:@"/tmp/草莓的录音.m4a"]];
 }
 - (NSImageView *)appIcon:(CGFloat)size {
     NSImageView *view=[[NSImageView alloc] initWithFrame:NSMakeRect(0,0,size,size)];
@@ -186,26 +188,46 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     if([e[@"event"] isEqual:@"step_done"]) [self.completed addObject:e[@"id"]]; if([e[@"event"] isEqual:@"error"]) [self failure:e[@"detail"]]; [self renderSteps:e[@"id"]];
 }
 - (void)showDetails:(id)sender { NSAlert *a=[NSAlert new]; a.messageText=@"安装详细信息"; a.informativeText=self.details.length?self.details:@"暂时没有详细信息。"; [a addButtonWithTitle:@"关闭"]; [a runModal]; }
-- (void)showComplete {
+- (void)showComplete { self.pendingRecording=nil; [self renderComplete]; }
+// 完成页：无“完成”按钮（关窗走标题栏红点）；拖入/选中一个录音进入“待确认”态，
+// 显示“已选择:<文件名>”+“开始解析”，点它才真正入队处理。
+- (void)renderComplete {
     [self reset]; [self place:[self appIcon:72] x:274 y:482 w:72 h:72];
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
-    NSTextField *c=[self label:@"现在加入第一段录音，MeetingNotes 会立即开始处理。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:78 y:404 w:464 h:26];
+    NSString *subText=self.pendingRecording
+        ? [NSString stringWithFormat:@"已选择：%@",self.pendingRecording.lastPathComponent]
+        : @"拖入或选择一段录音，点“开始解析”开始处理。";
+    NSTextField *c=[self label:subText size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; c.lineBreakMode=NSLineBreakByTruncatingMiddle; [self place:c x:60 y:404 w:500 h:26];
     MNDropView *drop=[MNDropView new]; drop.controller=self; [self place:drop x:85 y:228 w:450 h:154];
     self.recordingStatus=[self label:@"支持 m4a、mp3、wav、mp4、mov 等常见音视频格式" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; self.recordingStatus.alignment=NSTextAlignmentCenter;
     [self place:self.recordingStatus x:75 y:194 w:470 h:20];
     NSString *r=@"✓  菜单栏小猫已启动并显示处理进度      ✓  AirDrop 自动处理已启用"; NSTextField *ready=[self label:r size:13 weight:NSFontWeightRegular color:NSColor.labelColor]; ready.alignment=NSTextAlignmentCenter; [self place:ready x:60 y:154 w:500 h:22];
-    [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
-    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:106 y:50 w:142 h:32];
-    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:254 y:50 w:130 h:32];
-    [self place:[self button:@"完成" action:@selector(cancel:) primary:NO] x:390 y:50 w:110 h:32];
+    if(self.pendingRecording) {
+        [self place:[self button:@"开始解析" action:@selector(startParsing:) primary:YES] x:180 y:104 w:170 h:38];
+        [self place:[self button:@"重选" action:@selector(reselectRecording:) primary:NO] x:360 y:104 w:90 h:38];
+    } else {
+        [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
+    }
+    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:152 y:50 w:150 h:32];
+    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:318 y:50 w:150 h:32];
 }
+// 选中（拖入或“选择录音”）→ 只暂存，不处理，进入待确认态
+- (void)selectRecording:(NSURL *)url { self.pendingRecording=url; [self renderComplete]; }
+- (void)reselectRecording:(id)sender { self.pendingRecording=nil; [self renderComplete]; }
+- (void)startParsing:(id)sender {
+    if(!self.pendingRecording) return;
+    NSURL *url=self.pendingRecording; self.pendingRecording=nil;
+    [self renderComplete];            // 回到初始态，拖放区保留可接着投下一个
+    [self enqueueRecording:url];      // 真正入队处理，recordingStatus 显示“已加入…”，右下角小猫弹出
+}
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app { return YES; }
 - (void)failure:(NSString *)message { self.taskTitle.stringValue=@"安装没有完成"; self.taskDetail.stringValue=message; self.percent.stringValue=@"需要处理"; }
 - (void)openInbox:(id)sender { NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"MeetingNotes/录音"]; [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:dir]]; }
 - (void)chooseRecording:(id)sender {
     NSOpenPanel *panel=[NSOpenPanel openPanel];
     panel.title=@"选择一段会议录音";
-    panel.message=@"选择后会复制到 MeetingNotes，桌面上的原文件会保留。";
-    panel.prompt=@"开始处理";
+    panel.message=@"选择后先确认，点“开始解析”才会处理；桌面上的原文件会保留。";
+    panel.prompt=@"选好了";
     panel.canChooseFiles=YES; panel.canChooseDirectories=NO; panel.allowsMultipleSelection=NO;
     NSMutableArray *types=[NSMutableArray array];
     for(NSString *extension in @[@"m4a",@"mp3",@"wav",@"mp4",@"mov",@"aac",@"flac",@"aiff",@"opus"]) {
@@ -214,7 +236,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     panel.allowedContentTypes=types;
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result){
         if(result!=NSModalResponseOK || !panel.URL) return;
-        [self enqueueRecording:panel.URL];
+        [self selectRecording:panel.URL];
     }];
 }
 - (NSString *)processingBase {
@@ -261,14 +283,14 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     [stroke setStroke]; path.lineWidth=self.hovering?2.5:1.5; CGFloat dash[]={7,5}; [path setLineDash:dash count:2 phase:0]; [path stroke];
     NSDictionary *title=@{NSFontAttributeName:[NSFont systemFontOfSize:17 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.labelColor};
     NSDictionary *hint=@{NSFontAttributeName:[NSFont systemFontOfSize:13],NSForegroundColorAttributeName:NSColor.secondaryLabelColor};
-    [@"拖放录音到这里" drawAtPoint:NSMakePoint(151,47) withAttributes:title]; [@"松开后立即加入处理队列" drawAtPoint:NSMakePoint(147,78) withAttributes:hint];
+    [@"拖放录音到这里" drawAtPoint:NSMakePoint(151,47) withAttributes:title]; [@"松开后点“开始解析”即可处理" drawAtPoint:NSMakePoint(129,78) withAttributes:hint];
 }
 - (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender { self.hovering=YES; [self setNeedsDisplay:YES]; return NSDragOperationCopy; }
 - (void)draggingExited:(id<NSDraggingInfo>)sender { self.hovering=NO; [self setNeedsDisplay:YES]; }
 - (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
     self.hovering=NO; [self setNeedsDisplay:YES];
     NSArray<NSURL *> *urls=[sender.draggingPasteboard readObjectsForClasses:@[NSURL.class] options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}];
-    NSURL *url=urls.firstObject; if(!url || !url.isFileURL) return NO; [self.controller enqueueRecording:url]; return YES;
+    NSURL *url=urls.firstObject; if(!url || !url.isFileURL) return NO; [self.controller selectRecording:url]; return YES;
 }
 @end
 

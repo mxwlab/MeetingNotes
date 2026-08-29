@@ -274,7 +274,7 @@ step "准备 Python"
 mn_progress step_start python 8 "准备运行环境" "首次安装通常需要 1–3 分钟"
 # 下 Python + pip 装 torch/mlx 等重依赖要跑几分钟；用心跳包装让窗口持续显示已用时长，
 # 否则进度条会定格在 8% 像假死（run_logged 把细节写日志，不往 GUI 发事件）。
-mn_run_with_heartbeat python 8 "准备运行环境" "正在下载并安装处理依赖" \
+mn_run_with_heartbeat python 8 "准备运行环境" "正在下载并安装处理依赖" "预计还需约 1–3 分钟" \
   -- run_logged "$BASE/scripts/fetch_python.sh" || fail "Python 运行环境准备失败"
 mn_progress step_done python 32 "运行环境已准备好" "Python 与处理依赖安装完成"
 export MEETINGNOTES_PYTHON="$BASE/venv/bin/python"
@@ -307,7 +307,7 @@ mn_progress step_done service 91 "后台服务已启动" "正在等待新录音"
 step "安装菜单栏"
 mn_progress step_start menubar 92 "安装菜单栏小猫" "用于显示转录进度和完成提醒"
 # 构建菜单栏 App（py2app）也要一两分钟，同样用心跳避免窗口假死。
-mn_run_with_heartbeat menubar 92 "安装菜单栏小猫" "正在构建菜单栏 App" \
+mn_run_with_heartbeat menubar 92 "安装菜单栏小猫" "正在构建菜单栏 App" "预计约 1–2 分钟" \
   -- run_logged "$BASE/scripts/provision_menubar.sh" \
   || fail "菜单栏 App 安装失败"
 mn_progress step_done menubar 98 "菜单栏小猫已启动" "以后登录时会自动出现"
@@ -324,7 +324,10 @@ echo
 echo "MeetingNotes 安装完成。"
 echo "把录音放入：$BASE/录音"
 echo "生成的纪要在：$BASE/纪要"
-if [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" != true ]]; then
+# 仅在纯终端回退安装时才弹系统完成框；GUI 模式下由原生安装器窗口的完成页承担，
+# 不再单独弹一个割裂的系统对话框（PROGRESS_JSON=true 表示原生窗口在驱动）。
+if [[ "${MEETINGNOTES_BOOTSTRAP_TEST_MODE:-false}" != true \
+   && "${MEETINGNOTES_PROGRESS_JSON:-false}" != true ]]; then
   osascript -e 'display dialog "安装完成！现在可以把录音放进 MeetingNotes 的录音文件夹。" with title "MeetingNotes" buttons {"好"} default button "好" with icon note' \
     >/dev/null 2>&1 || true
 fi

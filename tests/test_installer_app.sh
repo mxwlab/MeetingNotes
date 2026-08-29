@@ -20,8 +20,14 @@ grep -Fq 'providerCard:@"其他服务' "$ROOT/installer/MeetingNotesInstaller.m"
 grep -Fq 'bezelColor=self.customProviderSelected' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL selected card highlight"; exit 1; }
 grep -Fq 'x:40 y:246 w:120 h:20' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service title position"; exit 1; }
 grep -Fq 'x:40 y:164 w:260 h:52' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL service card spacing"; exit 1; }
-grep -Fq 'panel.prompt=@"开始处理"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording chooser confirmation"; exit 1; }
-grep -Fq '[self enqueueRecording:panel.URL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL chooser does not enqueue recording"; exit 1; }
+# 选择/拖入只是暂存待确认，不立即处理；点“开始解析”才真正入队
+grep -Fq '[self selectRecording:panel.URL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL chooser should stage, not enqueue"; exit 1; }
+grep -Fq '[self.controller selectRecording:url]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL drop should stage, not enqueue"; exit 1; }
+grep -Fq '@"开始解析" action:@selector(startParsing:)' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL missing 开始解析 button"; exit 1; }
+grep -Fq '[self enqueueRecording:url]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL 开始解析 does not enqueue"; exit 1; }
+# 完成页不再有“完成”按钮（关窗走标题栏红点）
+grep -Fq '@"完成" action:@selector(cancel:)' "$ROOT/installer/MeetingNotesInstaller.m" && { echo "FAIL 完成 button should be removed"; exit 1; }
+grep -Fq 'applicationShouldTerminateAfterLastWindowClosed' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL should quit on window close"; exit 1; }
 grep -Fq 'copyItemAtURL:sourceURL' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording is not copied safely"; exit 1; }
 grep -Fq 'registerForDraggedTypes:@[NSPasteboardTypeFileURL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording drop target"; exit 1; }
 grep -Fq 'stringByAppendingPathComponent:@"inbox"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording queue path"; exit 1; }
