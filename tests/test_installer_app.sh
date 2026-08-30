@@ -28,9 +28,13 @@ grep -Fq '[self enqueueRecording:url]' "$ROOT/installer/MeetingNotesInstaller.m"
 # 待确认态：用 ✕ 删除已选文件、去掉“重选”按钮（不抢主视觉）
 grep -Fq '@"✕" target:self action:@selector(reselectRecording:)' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL missing ✕ clear button"; exit 1; }
 grep -Fq '@"重选"' "$ROOT/installer/MeetingNotesInstaller.m" && { echo "FAIL 重选 button should be removed"; exit 1; }
-# 主窗口顶部活体处理状态条：读同一个 .pet_state，与桌面小猫联动
-grep -Fq 'updateProcessingBanner' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL missing processing banner"; exit 1; }
-grep -Fq '@".pet_state"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL banner must read .pet_state"; exit 1; }
+# 拖放区下方队列状态区：读 .pet_state（正在处理）+ 数 inbox（等待计数），与桌面小猫联动
+grep -Fq 'updateStatus' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL missing queue status area"; exit 1; }
+grep -Fq '@".pet_state"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL status must read .pet_state"; exit 1; }
+grep -Fq 'inboxAudioCount' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL waiting count must derive from inbox"; exit 1; }
+grep -Fq '个排队等待' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL missing waiting-count text"; exit 1; }
+# 不再写死“已加入…正在等待”那行（处理完不消失的 bug）
+grep -Fq '正在等待小猫处理' "$ROOT/installer/MeetingNotesInstaller.m" && { echo "FAIL stale one-shot status must be removed"; exit 1; }
 # 完成页不再有“完成”按钮（关窗走标题栏红点）
 grep -Fq '@"完成" action:@selector(cancel:)' "$ROOT/installer/MeetingNotesInstaller.m" && { echo "FAIL 完成 button should be removed"; exit 1; }
 grep -Fq 'applicationShouldTerminateAfterLastWindowClosed' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL should quit on window close"; exit 1; }

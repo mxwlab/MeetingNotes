@@ -39,8 +39,11 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSTextField *keyHelp;
 @property NSTextField *recordingStatus;
 @property NSURL *pendingRecording;   // 已选中、待点“开始解析”的录音
-@property NSTextField *processingBanner;  // 顶部活体处理状态条（读 .pet_state，与桌面小猫同源联动）
+@property NSTextField *statusProcessing;  // 拖放区下方·正在处理行（蓝，读 .pet_state）
+@property NSTextField *statusWaiting;     // 拖放区下方·等待计数行（灰，数 inbox）
 @property NSTimer *processingTimer;
+@property (copy) NSString *lastDoneName;  // 完成态短暂显示后淡出用
+@property NSTimeInterval doneShownAt;
 @end
 
 @implementation MNController
@@ -209,10 +212,6 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 // 显示“已选择:<文件名> ✕”+“开始解析”，点它才真正入队处理。顶部有活体处理状态条与小猫同源。
 - (void)renderComplete {
     [self reset]; [self place:[self appIcon:72] x:274 y:482 w:72 h:72];
-    // 顶部活体处理状态条：读 .pet_state，处理时显示“正在转录/生成 xxx · %”，与桌面小猫联动
-    self.processingBanner=[self label:@"" size:13 weight:NSFontWeightMedium color:NSColor.controlAccentColor];
-    self.processingBanner.alignment=NSTextAlignmentCenter; self.processingBanner.lineBreakMode=NSLineBreakByTruncatingMiddle;
-    [self place:self.processingBanner x:40 y:596 w:540 h:22];
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
     if(self.pendingRecording) {
         // “已选择：<名>” + 紧跟一个 ✕ 删除按钮，整体居中；去掉“重选”，让主按钮独占视觉
@@ -227,33 +226,60 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
         NSTextField *c=[self label:@"拖入或选择一段录音，点“开始解析”开始处理。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:60 y:404 w:500 h:26];
     }
     MNDropView *drop=[MNDropView new]; drop.controller=self; [self place:drop x:85 y:228 w:450 h:154];
+    // 拖放区下方·队列状态区（两行，读 .pet_state + 数 inbox）：正在处理(蓝) / 等待计数(灰)
+    self.statusProcessing=[self label:@"" size:13 weight:NSFontWeightMedium color:NSColor.controlAccentColor];
+    self.statusProcessing.alignment=NSTextAlignmentCenter; self.statusProcessing.lineBreakMode=NSLineBreakByTruncatingMiddle;
+    [self place:self.statusProcessing x:40 y:200 w:540 h:20];
+    self.statusWaiting=[self label:@"" size:12.5 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
+    self.statusWaiting.alignment=NSTextAlignmentCenter;
+    [self place:self.statusWaiting x:40 y:180 w:540 h:18];
     self.recordingStatus=[self label:@"支持 m4a、mp3、wav、mp4、mov 等常见音视频格式" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; self.recordingStatus.alignment=NSTextAlignmentCenter;
-    [self place:self.recordingStatus x:75 y:194 w:470 h:20];
-    NSString *r=@"✓  菜单栏小猫已启动并显示处理进度      ✓  AirDrop 自动处理已启用"; NSTextField *ready=[self label:r size:13 weight:NSFontWeightRegular color:NSColor.labelColor]; ready.alignment=NSTextAlignmentCenter; [self place:ready x:60 y:154 w:500 h:22];
+    [self place:self.recordingStatus x:75 y:156 w:470 h:18];
+    NSString *r=@"✓  菜单栏小猫已启动并显示处理进度      ✓  AirDrop 自动处理已启用"; NSTextField *ready=[self label:r size:13 weight:NSFontWeightRegular color:NSColor.labelColor]; ready.alignment=NSTextAlignmentCenter; [self place:ready x:60 y:128 w:500 h:22];
     if(self.pendingRecording) {
-        [self place:[self button:@"开始解析" action:@selector(startParsing:) primary:YES] x:210 y:104 w:200 h:38];
+        [self place:[self button:@"开始解析" action:@selector(startParsing:) primary:YES] x:210 y:80 w:200 h:38];
     } else {
-        [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
+        [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:80 w:200 h:38];
     }
-    [self place:[self link:@"打开录音文件夹" action:@selector(openInbox:)] x:210 y:54 w:200 h:20];
-    [self updateProcessingBanner:nil];   // 立即刷一次，避免切态时闪空
+    [self place:[self link:@"打开录音文件夹" action:@selector(openInbox:)] x:210 y:40 w:200 h:20];
+    [self updateStatus:nil];   // 立即刷一次，避免切态时闪空
 }
-// 顶部活体处理状态条：与桌面小猫读同一个 .pet_state，让主窗口和小猫弹窗联动成一体
+// 拖放区下方队列状态区：与桌面小猫读同一个 .pet_state，并数 inbox 得出等待个数，主窗口和小猫联动
 - (void)startProcessingWatch {
     if(self.processingTimer) return;
-    self.processingTimer=[NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateProcessingBanner:) userInfo:nil repeats:YES];
+    self.processingTimer=[NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateStatus:) userInfo:nil repeats:YES];
 }
-- (void)updateProcessingBanner:(NSTimer *)timer {
-    if(!self.processingBanner) return;
+- (NSInteger)inboxAudioCount {
+    NSString *dir=[[self processingBase] stringByAppendingPathComponent:@"inbox"];
+    NSArray<NSString *> *files=[[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil];
+    NSSet *exts=[NSSet setWithArray:@[@"m4a",@"mp3",@"wav",@"mp4",@"mov",@"aac",@"flac",@"aiff",@"opus"]];
+    NSInteger n=0;
+    for(NSString *f in files) if(![f hasPrefix:@"."] && [exts containsObject:f.pathExtension.lowercaseString]) n++;
+    return n;
+}
+- (void)updateStatus:(NSTimer *)timer {
+    if(!self.statusProcessing) return;
     NSString *raw=[NSString stringWithContentsOfFile:[[self processingBase] stringByAppendingPathComponent:@".pet_state"] encoding:NSUTF8StringEncoding error:nil];
     NSArray<NSString *> *L=[(raw?:@"") componentsSeparatedByString:@"\n"];
     NSString *st=L.count>0?L[0]:@"", *nm=L.count>1?L[1]:@"", *pct=L.count>2?L[2]:@"";
-    if([st isEqualToString:@"transcribe"])
-        self.processingBanner.stringValue=[NSString stringWithFormat:@"⏳ 正在转录：%@%@",nm,pct.length?[NSString stringWithFormat:@" · %@%%",pct]:@""];
-    else if([st isEqualToString:@"summarize"])
-        self.processingBanner.stringValue=[NSString stringWithFormat:@"✍️ 正在生成纪要：%@",nm];
-    else
-        self.processingBanner.stringValue=@"";
+    BOOL active=[st isEqualToString:@"transcribe"]||[st isEqualToString:@"summarize"];
+    // 正在处理行（蓝）；完成态短暂显示绿色再淡出
+    if([st isEqualToString:@"transcribe"]) {
+        self.statusProcessing.textColor=NSColor.controlAccentColor;
+        self.statusProcessing.stringValue=[NSString stringWithFormat:@"⏳ 正在转录：%@%@",nm,pct.length?[NSString stringWithFormat:@" · %@%%",pct]:@""];
+    } else if([st isEqualToString:@"summarize"]) {
+        self.statusProcessing.textColor=NSColor.controlAccentColor;
+        self.statusProcessing.stringValue=[NSString stringWithFormat:@"✍️ 正在生成纪要：%@",nm];
+    } else if([st isEqualToString:@"done"]) {
+        if(![nm isEqual:self.lastDoneName]) { self.lastDoneName=nm; self.doneShownAt=NSDate.date.timeIntervalSince1970; }
+        if(NSDate.date.timeIntervalSince1970-self.doneShownAt < 6) {
+            self.statusProcessing.textColor=NSColor.systemGreenColor;
+            self.statusProcessing.stringValue=[NSString stringWithFormat:@"✅ %@ · 纪要已生成",nm];
+        } else self.statusProcessing.stringValue=@"";
+    } else self.statusProcessing.stringValue=@"";
+    // 等待行（灰）：inbox 里减去正在处理的那个；只报个数，不列名
+    NSInteger waiting=[self inboxAudioCount]-(active?1:0);
+    self.statusWaiting.stringValue=waiting>0?[NSString stringWithFormat:@"🕐 还有 %ld 个排队等待",(long)waiting]:@"";
 }
 // 选中（拖入或“选择录音”）→ 只暂存，不处理，进入待确认态
 - (void)selectRecording:(NSURL *)url { self.pendingRecording=url; [self renderComplete]; }
@@ -307,11 +333,13 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSError *error=mkdirError;
     if(!error) [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:[NSURL fileURLWithPath:destination] error:&error];
     if(error) { self.recordingStatus.stringValue=[NSString stringWithFormat:@"加入失败：%@",error.localizedDescription]; self.recordingStatus.textColor=NSColor.systemRedColor; NSBeep(); return; }
-    self.recordingStatus.stringValue=[NSString stringWithFormat:@"已加入“%@”，正在等待小猫处理…",sourceURL.lastPathComponent]; self.recordingStatus.textColor=NSColor.controlAccentColor;
+    // 不再写死“已加入…正在等待”那行——改由队列状态区(updateStatus)按 .pet_state + inbox 实时显示，
+    // 处理完自动清除，不会残留。
     NSString *script=[[self processingBase] stringByAppendingPathComponent:@"watch_inbox.sh"];
     if([[NSFileManager defaultManager] isExecutableFileAtPath:script]) {
         NSTask *kick=[NSTask new]; kick.executableURL=[NSURL fileURLWithPath:@"/bin/zsh"]; kick.arguments=@[script]; [kick launchAndReturnError:nil];
     }
+    [self updateStatus:nil];   // 立即刷新，让“等待/处理”状态马上出现
 }
 - (void)openKeyPage:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://platform.deepseek.com/api_keys"]]; }
 - (void)openGuide:(id)sender { NSString *base=[self base]; if(base) [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[base stringByAppendingPathComponent:@"docs/新手安装图文教程.md"]]]; }
