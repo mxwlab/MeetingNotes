@@ -37,12 +37,24 @@ MODEL_WHISPER = _LOCAL_MODEL if os.path.exists(os.path.join(_LOCAL_MODEL, "weigh
 _QWEN_MODEL_ID = os.environ.get(
     "QWEN_MODEL_PATH", os.path.join(BASE, "models", "qwen3-asr-1.7b-8bit")
 )
+# 本地快照缺失时回退到的 HF 仓库名（走 HF 缓存/Hub）
+_QWEN_REPO = os.environ.get("QWEN_REPO", "mlx-community/Qwen3-ASR-1.7B-8bit")
+
+def _resolve_qwen_source():
+    """决定把什么传给 load_model：优先项目本地快照（可复现/离线），
+    但快照不存在或不完整（缺 config.json）时回退到 HF 仓库名。
+    关键：绝不把不存在的绝对路径丢给 load_model —— 它会把绝对路径当成 repo_id 校验、
+    抛 HFValidationError，进而每次静默退回 whisper（B4：Qwen 形同虚设、准确度掉到 whisper 级）。"""
+    if os.path.isdir(_QWEN_MODEL_ID) and os.path.exists(os.path.join(_QWEN_MODEL_ID, "config.json")):
+        return _QWEN_MODEL_ID
+    return _QWEN_REPO
+
 _qwen_model = None
 def _load_qwen():
     global _qwen_model
     if _qwen_model is None:
         from mlx_qwen3_asr import load_model
-        _qwen_model, _ = load_model(_QWEN_MODEL_ID)
+        _qwen_model, _ = load_model(_resolve_qwen_source())
     return _qwen_model
 
 def _run_qwen(wav_path, model, on_progress=None):
