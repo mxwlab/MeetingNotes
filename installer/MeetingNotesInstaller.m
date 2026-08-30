@@ -33,6 +33,8 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property NSTextField *keyHelp;
 @property NSTextField *recordingStatus;
 @property NSURL *pendingRecording;   // 已选中、待点“开始解析”的录音
+@property NSTextField *processingBanner;  // 顶部活体处理状态条（读 .pet_state，与桌面小猫同源联动）
+@property NSTimer *processingTimer;
 @end
 
 @implementation MNController
@@ -188,28 +190,57 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     if([e[@"event"] isEqual:@"step_done"]) [self.completed addObject:e[@"id"]]; if([e[@"event"] isEqual:@"error"]) [self failure:e[@"detail"]]; [self renderSteps:e[@"id"]];
 }
 - (void)showDetails:(id)sender { NSAlert *a=[NSAlert new]; a.messageText=@"安装详细信息"; a.informativeText=self.details.length?self.details:@"暂时没有详细信息。"; [a addButtonWithTitle:@"关闭"]; [a runModal]; }
-- (void)showComplete { self.pendingRecording=nil; [self renderComplete]; }
+- (void)showComplete { self.pendingRecording=nil; [self renderComplete]; [self startProcessingWatch]; }
 // 完成页：无“完成”按钮（关窗走标题栏红点）；拖入/选中一个录音进入“待确认”态，
-// 显示“已选择:<文件名>”+“开始解析”，点它才真正入队处理。
+// 显示“已选择:<文件名> ✕”+“开始解析”，点它才真正入队处理。顶部有活体处理状态条与小猫同源。
 - (void)renderComplete {
     [self reset]; [self place:[self appIcon:72] x:274 y:482 w:72 h:72];
+    // 顶部活体处理状态条：读 .pet_state，处理时显示“正在转录/生成 xxx · %”，与桌面小猫联动
+    self.processingBanner=[self label:@"" size:13 weight:NSFontWeightMedium color:NSColor.controlAccentColor];
+    self.processingBanner.alignment=NSTextAlignmentCenter; self.processingBanner.lineBreakMode=NSLineBreakByTruncatingMiddle;
+    [self place:self.processingBanner x:40 y:596 w:540 h:22];
     NSTextField *t=[self label:@"MeetingNotes 已准备好" size:27 weight:NSFontWeightSemibold color:NSColor.labelColor]; t.alignment=NSTextAlignmentCenter; [self place:t x:70 y:442 w:480 h:38];
-    NSString *subText=self.pendingRecording
-        ? [NSString stringWithFormat:@"已选择：%@",self.pendingRecording.lastPathComponent]
-        : @"拖入或选择一段录音，点“开始解析”开始处理。";
-    NSTextField *c=[self label:subText size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; c.lineBreakMode=NSLineBreakByTruncatingMiddle; [self place:c x:60 y:404 w:500 h:26];
+    if(self.pendingRecording) {
+        // “已选择：<名>” + 紧跟一个 ✕ 删除按钮，整体居中；去掉“重选”，让主按钮独占视觉
+        NSTextField *c=[self label:[NSString stringWithFormat:@"已选择：%@",self.pendingRecording.lastPathComponent] size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
+        c.lineBreakMode=NSLineBreakByTruncatingMiddle; [c sizeToFit];
+        CGFloat tw=MIN(c.frame.size.width,430),bw=22,gap=6,total=tw+gap+bw,sx=(620-total)/2;
+        c.frame=NSMakeRect(sx,404,tw,26); [self.content addSubview:c];
+        NSButton *clear=[NSButton buttonWithTitle:@"✕" target:self action:@selector(reselectRecording:)];
+        clear.bezelStyle=NSBezelStyleInline; clear.controlSize=NSControlSizeSmall; clear.toolTip=@"删除，重新选择";
+        clear.frame=NSMakeRect(sx+tw+gap,405,bw,22); [self.content addSubview:clear];
+    } else {
+        NSTextField *c=[self label:@"拖入或选择一段录音，点“开始解析”开始处理。" size:15 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; c.alignment=NSTextAlignmentCenter; [self place:c x:60 y:404 w:500 h:26];
+    }
     MNDropView *drop=[MNDropView new]; drop.controller=self; [self place:drop x:85 y:228 w:450 h:154];
     self.recordingStatus=[self label:@"支持 m4a、mp3、wav、mp4、mov 等常见音视频格式" size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor]; self.recordingStatus.alignment=NSTextAlignmentCenter;
     [self place:self.recordingStatus x:75 y:194 w:470 h:20];
     NSString *r=@"✓  菜单栏小猫已启动并显示处理进度      ✓  AirDrop 自动处理已启用"; NSTextField *ready=[self label:r size:13 weight:NSFontWeightRegular color:NSColor.labelColor]; ready.alignment=NSTextAlignmentCenter; [self place:ready x:60 y:154 w:500 h:22];
     if(self.pendingRecording) {
-        [self place:[self button:@"开始解析" action:@selector(startParsing:) primary:YES] x:180 y:104 w:170 h:38];
-        [self place:[self button:@"重选" action:@selector(reselectRecording:) primary:NO] x:360 y:104 w:90 h:38];
+        [self place:[self button:@"开始解析" action:@selector(startParsing:) primary:YES] x:210 y:104 w:200 h:38];
     } else {
         [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
     }
     [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:152 y:50 w:150 h:32];
     [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:318 y:50 w:150 h:32];
+    [self updateProcessingBanner:nil];   // 立即刷一次，避免切态时闪空
+}
+// 顶部活体处理状态条：与桌面小猫读同一个 .pet_state，让主窗口和小猫弹窗联动成一体
+- (void)startProcessingWatch {
+    if(self.processingTimer) return;
+    self.processingTimer=[NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateProcessingBanner:) userInfo:nil repeats:YES];
+}
+- (void)updateProcessingBanner:(NSTimer *)timer {
+    if(!self.processingBanner) return;
+    NSString *raw=[NSString stringWithContentsOfFile:[[self processingBase] stringByAppendingPathComponent:@".pet_state"] encoding:NSUTF8StringEncoding error:nil];
+    NSArray<NSString *> *L=[(raw?:@"") componentsSeparatedByString:@"\n"];
+    NSString *st=L.count>0?L[0]:@"", *nm=L.count>1?L[1]:@"", *pct=L.count>2?L[2]:@"";
+    if([st isEqualToString:@"transcribe"])
+        self.processingBanner.stringValue=[NSString stringWithFormat:@"⏳ 正在转录：%@%@",nm,pct.length?[NSString stringWithFormat:@" · %@%%",pct]:@""];
+    else if([st isEqualToString:@"summarize"])
+        self.processingBanner.stringValue=[NSString stringWithFormat:@"✍️ 正在生成纪要：%@",nm];
+    else
+        self.processingBanner.stringValue=@"";
 }
 // 选中（拖入或“选择录音”）→ 只暂存，不处理，进入待确认态
 - (void)selectRecording:(NSURL *)url { self.pendingRecording=url; [self renderComplete]; }
