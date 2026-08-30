@@ -9,6 +9,12 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
 @property BOOL hovering;
 @end
 
+// 文字链接：平时次要灰色文字，鼠标悬停变主题色 + 手型光标，表示可点击。
+@interface MNLink : NSButton
+@property (copy) NSString *labelText;
+- (void)applyColor:(NSColor *)c;
+@end
+
 @interface MNController : NSObject <NSApplicationDelegate>
 @property NSWindow *window;
 @property NSView *content;
@@ -51,6 +57,14 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSButton *b = [NSButton buttonWithTitle:title target:self action:action];
     b.bezelStyle = NSBezelStyleRounded; b.controlSize = NSControlSizeLarge;
     if (primary) b.keyEquivalent = @"\r";
+    return b;
+}
+- (MNLink *)link:(NSString *)title action:(SEL)action {
+    MNLink *b = [MNLink new];
+    b.bordered = NO; [b setButtonType:NSButtonTypeMomentaryChange];
+    b.target = self; b.action = action; b.labelText = title; b.title = title;
+    b.alignment = NSTextAlignmentCenter;
+    [b applyColor:NSColor.secondaryLabelColor];
     return b;
 }
 - (void)reset { for (NSView *v in self.content.subviews.copy) [v removeFromSuperview]; }
@@ -221,8 +235,7 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     } else {
         [self place:[self button:@"选择录音" action:@selector(chooseRecording:) primary:YES] x:210 y:104 w:200 h:38];
     }
-    [self place:[self button:@"打开录音文件夹" action:@selector(openInbox:) primary:NO] x:152 y:50 w:150 h:32];
-    [self place:[self button:@"查看使用方法" action:@selector(openGuide:) primary:NO] x:318 y:50 w:150 h:32];
+    [self place:[self link:@"打开录音文件夹" action:@selector(openInbox:)] x:210 y:54 w:200 h:20];
     [self updateProcessingBanner:nil];   // 立即刷一次，避免切态时闪空
 }
 // 顶部活体处理状态条：与桌面小猫读同一个 .pet_state，让主窗口和小猫弹窗联动成一体
@@ -323,6 +336,22 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSArray<NSURL *> *urls=[sender.draggingPasteboard readObjectsForClasses:@[NSURL.class] options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}];
     NSURL *url=urls.firstObject; if(!url || !url.isFileURL) return NO; [self.controller selectRecording:url]; return YES;
 }
+@end
+
+@implementation MNLink
+- (void)applyColor:(NSColor *)c {
+    self.attributedTitle=[[NSAttributedString alloc] initWithString:self.labelText?:@""
+        attributes:@{NSForegroundColorAttributeName:c, NSFontAttributeName:[NSFont systemFontOfSize:13],
+                     NSParagraphStyleAttributeName:({NSMutableParagraphStyle *p=[NSMutableParagraphStyle new]; p.alignment=NSTextAlignmentCenter; p;})}];
+}
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    for(NSTrackingArea *a in self.trackingAreas.copy) [self removeTrackingArea:a];
+    [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:self.bounds
+        options:NSTrackingMouseEnteredAndExited|NSTrackingActiveAlways owner:self userInfo:nil]];
+}
+- (void)mouseEntered:(NSEvent *)e { [self applyColor:NSColor.controlAccentColor]; [[NSCursor pointingHandCursor] set]; }
+- (void)mouseExited:(NSEvent *)e { [self applyColor:NSColor.secondaryLabelColor]; [[NSCursor arrowCursor] set]; }
 @end
 
 int main(void){ @autoreleasepool { NSApplication *app=NSApplication.sharedApplication; MNController *controller=[MNController new]; app.delegate=controller; [app setActivationPolicy:NSApplicationActivationPolicyRegular]; [app run]; } return 0; }
