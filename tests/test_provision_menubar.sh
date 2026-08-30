@@ -43,6 +43,8 @@ plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
 [[ -x "$app" ]] || { echo "FAIL app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || { echo "FAIL main app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotesPet.app/Contents/MacOS/MeetingNotesPet" ]] || { echo "FAIL pet app missing"; exit 1; }
+# 小猫只在终态可点击关闭，处理中点击不误关
+grep -Fq 'if(self.closable) [NSApp terminate:nil]' "$ROOT/installer/MeetingNotesPet.m" || { echo "FAIL pet must only close when closable"; exit 1; }
 [[ -f "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon missing"; exit 1; }
 [[ ! -L "$home/Applications/MeetingNotes.app/Contents/Resources/MeetingNotes.icns" ]] || { echo "FAIL installed app icon is symlink"; exit 1; }
 grep -Fqx "${project:A}" "$home/Library/Application Support/MeetingNotes/base" || { echo "FAIL app base marker"; exit 1; }

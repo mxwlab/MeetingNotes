@@ -21,13 +21,15 @@ static void mn_state_text(NSString *state, NSString **label, BOOL *terminal) {
 }
 
 @interface MNCard : NSView
+@property BOOL closable;   // 仅终态(done/fail)可点击关闭；处理中忽略点击，避免误关
 @end
 @implementation MNCard
-- (void)mouseDown:(NSEvent *)e { [NSApp terminate:nil]; }   // 点卡片关闭
+- (void)mouseDown:(NSEvent *)e { if(self.closable) [NSApp terminate:nil]; }
 @end
 
 @interface MNPet : NSObject
 @property NSWindow *window;
+@property MNCard *card;
 @property NSImageView *icon;
 @property NSTextField *name;
 @property NSTextField *status;
@@ -60,6 +62,7 @@ static void mn_state_text(NSString *state, NSString **label, BOOL *terminal) {
         NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary;
 
     MNCard *card = [[MNCard alloc] initWithFrame:NSMakeRect(0, 0, W, H)];
+    self.card = card;
     card.wantsLayer = YES;
     card.layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
     card.layer.cornerRadius = 16;
@@ -125,6 +128,7 @@ static void mn_state_text(NSString *state, NSString **label, BOOL *terminal) {
 
     if (terminal) {
         self.terminal = YES;
+        self.card.closable = YES;   // 只有此时点击卡片才关闭；处理中点击被忽略，不会误关
         if ([state isEqualToString:@"done"]) { self.bar.doubleValue = 100; self.percent.stringValue = @"100%"; }
     }
 }
