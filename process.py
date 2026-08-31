@@ -5,6 +5,10 @@ from collections import Counter
 # 显式固定 HF 官方源（已设 HF_ENDPOINT 时不覆盖），避免环境里残留别的镜像设置导致行为不一致；
 # 国内直连 huggingface.co 不稳时可自行 export HF_ENDPOINT=https://hf-mirror.com
 os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
+# 运行时兜底禁用 hf-xet：xet 在慢/受限网络会静默停滞，导致首次需要联网拉取模型时
+# “转录卡死”。安装期 provision 已禁 xet，但运行时（watch_inbox/launchd 拉起 process.py）
+# 之前没设；这里统一关掉，任何运行时联网都走可续传 HTTP。高级用户可显式设 0 重新启用。
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 from openai import OpenAI
 
