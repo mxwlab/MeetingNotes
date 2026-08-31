@@ -1,5 +1,8 @@
 #!/bin/zsh
 set -eu
+# 安装器会把模型下载等慢任务放到后台轮询进度；不要让 zsh 自动 nice(5)。在受限环境中
+# setpriority 可能被拒绝并把正常任务误判为失败，且安装本身不应偷偷改变任务优先级。
+unsetopt BG_NICE
 
 SOURCE_BASE="${0:A:h:h}"
 source "$SOURCE_BASE/scripts/installer_progress.sh"
@@ -44,7 +47,7 @@ settle_project() {
   local -a excludes
   excludes=(
     --exclude .git --exclude .DS_Store --exclude .claude --exclude __pycache__
-    --exclude config.local.sh --exclude .pet_state
+    --exclude config.local.sh --exclude .pet_state --exclude .menubar_label
     --exclude inbox --exclude output --exclude done --exclude logs
     --exclude 录音 --exclude 纪要
     --exclude models --exclude runtime --exclude venv --exclude venv-ui

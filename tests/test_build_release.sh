@@ -43,6 +43,7 @@ for required in \
   'MeetingNotes/scripts/provision_models.sh' \
   'MeetingNotes/scripts/provision_menubar.sh' \
   'MeetingNotes/scripts/install_menubar_autostart.sh' \
+  'MeetingNotes/scripts/menubar_identity.sh' \
   'MeetingNotes/requirements-ui.txt' \
   'MeetingNotes/setup_ui.py' \
   'MeetingNotes/installer/MeetingNotesInstaller.m' \
@@ -63,7 +64,7 @@ if grep -Eq '(^|/)(ui/main\.py|setup_main\.py)$' "$listing"; then
   echo "FAIL 废弃的 Python 主窗口 ui/main.py/setup_main.py 不应再被打包"; exit 1
 fi
 
-if grep -E '(^|/)(\.git|config\.local\.sh|venv|runtime|models|tools|inbox|output|done|logs|__pycache__)(/|$)' "$listing"; then
+if grep -E '(^|/)(\.git|config\.local\.sh|\.menubar_label|venv|runtime|models|tools|inbox|output|done|logs|__pycache__)(/|$)' "$listing"; then
   echo "FAIL forbidden path in release"
   exit 1
 fi

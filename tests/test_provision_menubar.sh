@@ -12,6 +12,7 @@ mkdir -p "$project/scripts" "$project/launchd" "$project/ui" \
 
 cp "$ROOT/scripts/provision_menubar.sh" "$project/scripts/"
 cp "$ROOT/scripts/install_menubar_autostart.sh" "$project/scripts/"
+cp "$ROOT/scripts/menubar_identity.sh" "$project/scripts/"
 cp "$ROOT/launchd/com.moxiuwen.meetingnotes.menubar.plist.template" "$project/launchd/"
 cp "$ROOT/setup_ui.py" "$ROOT/requirements-ui.txt" "$project/"
 mkdir -p "$project/assets"
@@ -39,7 +40,9 @@ MEETINGNOTES_TEST_CALLS="$calls" MEETINGNOTES_TEST_BOOTSTRAP_ONCE="$tmp/once" \
   "$project/scripts/provision_menubar.sh" >/dev/null
 
 app="$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏"
-plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
+path_hash="$(printf '%s' "${project:A}" | shasum | cut -c1-8)"
+default_label="com.moxiuwen.meetingnotes.menubar.$path_hash"
+plist="$home/Library/LaunchAgents/$default_label.plist"
 [[ -x "$app" ]] || { echo "FAIL app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotes.app/Contents/MacOS/MeetingNotes" ]] || { echo "FAIL main app missing"; exit 1; }
 [[ -x "$project/dist/MeetingNotesPet.app/Contents/MacOS/MeetingNotesPet" ]] || { echo "FAIL pet app missing"; exit 1; }
@@ -52,8 +55,13 @@ plutil -lint "$plist" >/dev/null || { echo "FAIL plist invalid"; exit 1; }
 grep -Fq "$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/MacOS/MeetingNotes 菜单栏" "$plist" \
   || { echo "FAIL app path"; exit 1; }
 grep -Fq "<string>${project:A}</string>" "$plist" || { echo "FAIL base path"; exit 1; }
-grep -Fq '<string>com.moxiuwen.meetingnotes.menubar</string>' "$plist" \
+grep -Fq "<string>$default_label</string>" "$plist" \
   || { echo "FAIL default label"; exit 1; }
+grep -Fqx "$default_label" "$project/.menubar_label" \
+  || { echo "FAIL persisted default label"; exit 1; }
+grep -Fq "<string>$default_label</string>" \
+  "$project/dist-menubar/MeetingNotes 菜单栏.app/Contents/Info.plist" \
+  || { echo "FAIL path-specific bundle identifier"; exit 1; }
 ! grep -Fq '/Users/moxiuwen/workspace/MeetingNotes' "$plist" \
   || { echo "FAIL hard-coded developer path"; exit 1; }
 [[ "$(grep -c '^bootstrap ' "$calls")" == 2 ]] \
@@ -75,5 +83,7 @@ isolated_plist="$home/Library/LaunchAgents/$isolated_label.plist"
 [[ -f "$isolated_plist" ]] || { echo "FAIL isolated plist missing"; exit 1; }
 grep -Fq "<string>$isolated_label</string>" "$isolated_plist" \
   || { echo "FAIL isolated label"; exit 1; }
+grep -Fqx "$isolated_label" "$project/.menubar_label" \
+  || { echo "FAIL persisted isolated label"; exit 1; }
 
 echo PASS

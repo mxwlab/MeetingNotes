@@ -39,6 +39,10 @@ grep -Fq '正在等待小猫处理' "$ROOT/installer/MeetingNotesInstaller.m" &&
 grep -Fq '@"完成" action:@selector(cancel:)' "$ROOT/installer/MeetingNotesInstaller.m" && { echo "FAIL 完成 button should be removed"; exit 1; }
 grep -Fq 'applicationShouldTerminateAfterLastWindowClosed' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL should quit on window close"; exit 1; }
 grep -Fq 'copyItemAtURL:sourceURL' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording is not copied safely"; exit 1; }
+grep -Fq 'BOOL alreadyQueued=' "$ROOT/installer/MeetingNotesInstaller.m" \
+  || { echo "FAIL recording already in inbox would be duplicated"; exit 1; }
+grep -Fq '!error && !alreadyQueued' "$ROOT/installer/MeetingNotesInstaller.m" \
+  || { echo "FAIL already queued recording is still copied"; exit 1; }
 grep -Fq 'registerForDraggedTypes:@[NSPasteboardTypeFileURL]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording drop target"; exit 1; }
 grep -Fq 'stringByAppendingPathComponent:@"inbox"' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording queue path"; exit 1; }
 grep -Fq 'kick.arguments=@[script]' "$ROOT/installer/MeetingNotesInstaller.m" || { echo "FAIL recording processing kick"; exit 1; }

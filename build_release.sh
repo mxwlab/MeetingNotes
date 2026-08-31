@@ -57,6 +57,7 @@ files=(
   "scripts/build_main_app.sh"
   "scripts/build_pet_app.sh"
   "scripts/install_menubar_autostart.sh"
+  "scripts/menubar_identity.sh"
   "scripts/installer_progress.sh"
   "ui/__init__.py"
   "ui/menubar.py"

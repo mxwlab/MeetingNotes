@@ -326,12 +326,15 @@ static NSString *const MNPrefix = @"@@MEETINGNOTES@@";
     NSString *dir=[[self processingBase] stringByAppendingPathComponent:@"inbox"];
     NSError *mkdirError=nil; [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:&mkdirError];
     NSString *destination=[dir stringByAppendingPathComponent:sourceURL.lastPathComponent];
-    if([[NSFileManager defaultManager] fileExistsAtPath:destination]) {
+    // 用户可能从“打开录音文件夹”里选中一个已经在 inbox 的文件。此时它本来就在队列中，
+    // 只需重新触发 watcher；不能再复制一份带时间戳的重复录音。
+    BOOL alreadyQueued=[sourceURL.path.stringByStandardizingPath isEqualToString:destination.stringByStandardizingPath];
+    if(!alreadyQueued && [[NSFileManager defaultManager] fileExistsAtPath:destination]) {
         NSString *stem=sourceURL.lastPathComponent.stringByDeletingPathExtension, *ext=sourceURL.pathExtension;
         destination=[dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%lld%@%@",stem,(long long)[NSDate date].timeIntervalSince1970,ext.length?@".":@"",ext]];
     }
     NSError *error=mkdirError;
-    if(!error) [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:[NSURL fileURLWithPath:destination] error:&error];
+    if(!error && !alreadyQueued) [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:[NSURL fileURLWithPath:destination] error:&error];
     if(error) { self.recordingStatus.stringValue=[NSString stringWithFormat:@"加入失败：%@",error.localizedDescription]; self.recordingStatus.textColor=NSColor.systemRedColor; NSBeep(); return; }
     // 不再写死“已加入…正在等待”那行——改由队列状态区(updateStatus)按 .pet_state + inbox 实时显示，
     // 处理完自动清除，不会残留。

@@ -15,6 +15,7 @@ tmp/
 # 运行时状态与日志
 logs/
 .pet_state
+.menubar_label
 .watch.lock
 .dl.lock
 

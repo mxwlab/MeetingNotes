@@ -25,6 +25,10 @@ mn_progress() {
 # 如实返回被包裹命令的退出码，便于调用方 `|| fail`。用法：
 #   mn_run_with_heartbeat <id> <percent> <title> <detail_prefix> -- cmd [args...]
 mn_run_with_heartbeat() {
+  # zsh 默认会给后台 job 自动 nice(5)。受限环境可能拒绝 setpriority，并把本来正常的
+  # 安装命令误判为失败；心跳只需要并发，不需要擅自改变任务优先级。
+  setopt localoptions
+  unsetopt BG_NICE
   local id="$1" percent="$2" title="$3" detail_prefix="$4"
   shift 4
   # 可选的 ETA 粗估提示（第 5 个位置参数，在 -- 之前）；不传则只显示已用时长

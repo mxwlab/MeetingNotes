@@ -2,8 +2,11 @@
 set -eu
 
 BASE="${0:A:h:h}"
+source "$BASE/scripts/menubar_identity.sh"
 PYTHON="$BASE/venv/bin/python"
 UI_PYTHON="$BASE/venv-ui/bin/python"
+MENUBAR_LABEL="$(mn_menubar_label "$BASE")"
+MENUBAR_BUNDLE_ID="$(mn_menubar_bundle_id "$MENUBAR_LABEL")"
 
 [[ -x "$PYTHON" ]] || {
   echo "主 Python 环境尚未准备好：$PYTHON" >&2
@@ -19,7 +22,8 @@ fi
 
 (
   cd "$BASE"
-  "$UI_PYTHON" setup_ui.py py2app -A --dist-dir "$BASE/dist-menubar"
+  MEETINGNOTES_MENUBAR_BUNDLE_ID="$MENUBAR_BUNDLE_ID" \
+    "$UI_PYTHON" setup_ui.py py2app -A --dist-dir "$BASE/dist-menubar"
   "$BASE/scripts/build_main_app.sh" "$BASE/dist/MeetingNotes.app"
   "$BASE/scripts/build_pet_app.sh" "$BASE/dist/MeetingNotesPet.app"
 )

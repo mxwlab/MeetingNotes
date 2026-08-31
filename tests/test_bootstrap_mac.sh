@@ -21,6 +21,7 @@ make_package() {
   echo log > "$package_dir/logs/should-not-copy.log"
   echo venv > "$package_dir/venv/should-not-copy"
   echo 'export DEEPSEEK_API_KEY=must-not-copy' > "$package_dir/config.local.sh"
+  echo 'com.moxiuwen.meetingnotes.menubar.wrong-source' > "$package_dir/.menubar_label"
 
   for helper in fetch_python.sh fetch_ffmpeg.sh provision_models.sh provision_menubar.sh; do
     cat > "$package_dir/scripts/$helper" <<EOF
@@ -94,6 +95,7 @@ canonical_target="${target:A}"
 [[ ! -e "$target/inbox/should-not-copy.m4a" ]] || { echo "FAIL copied inbox"; exit 1; }
 [[ ! -e "$target/output/should-not-copy.md" ]] || { echo "FAIL copied output"; exit 1; }
 [[ ! -e "$target/venv/should-not-copy" ]] || { echo "FAIL copied venv"; exit 1; }
+[[ ! -e "$target/.menubar_label" ]] || { echo "FAIL copied path-bound menu bar label"; exit 1; }
 grep -q "test-key-one" "$target/config.local.sh" || { echo "FAIL config"; exit 1; }
 [[ "$(stat -f '%Lp' "$target/config.local.sh")" == 600 ]] || { echo "FAIL config mode"; exit 1; }
 for expected in fetch_python.sh fetch_ffmpeg.sh provision_models.sh provision_menubar.sh attach; do

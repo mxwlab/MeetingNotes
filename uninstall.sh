@@ -2,6 +2,7 @@
 set -eu
 
 BASE="${0:A:h}"
+source "$BASE/scripts/menubar_identity.sh"
 DRY_RUN=false
 NON_INTERACTIVE=false
 REMOVE_RUNTIME=false
@@ -36,8 +37,10 @@ plist="$HOME/Library/LaunchAgents/$label.plist"
 compiled="$HOME/Library/Scripts/Folder Action Scripts/MeetingNotes-$path_hash.scpt"
 downloads="${MEETINGNOTES_DOWNLOADS_DIR:-$HOME/Downloads}"
 detach_source="$BASE/folder-action/detach-folder-action.applescript"
-menubar_label="com.moxiuwen.meetingnotes.menubar"
+menubar_label="$(mn_menubar_label "$BASE")"
 menubar_plist="$HOME/Library/LaunchAgents/$menubar_label.plist"
+legacy_menubar_label="$(mn_legacy_menubar_label)"
+legacy_menubar_plist="$HOME/Library/LaunchAgents/$legacy_menubar_label.plist"
 
 if [[ "$DRY_RUN" == true ]]; then
   echo "Dry run：将卸载 $label"
@@ -65,6 +68,15 @@ if command -v launchctl >/dev/null; then
   launchctl bootout "gui/$(id -u)/$menubar_label" >/dev/null 2>&1 || true
 fi
 rm -f "$menubar_plist"
+if [[ "$legacy_menubar_label" != "$menubar_label" \
+   && -f "$legacy_menubar_plist" ]] \
+   && grep -Fq -- "$BASE" "$legacy_menubar_plist"; then
+  if command -v launchctl >/dev/null; then
+    launchctl bootout "gui/$(id -u)/$legacy_menubar_label" >/dev/null 2>&1 || true
+  fi
+  rm -f "$legacy_menubar_plist"
+fi
+rm -f "$BASE/.menubar_label"
 echo "已移除菜单栏自启服务"
 
 detached=false

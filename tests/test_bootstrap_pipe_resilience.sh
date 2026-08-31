@@ -42,13 +42,17 @@ PATH="$tmp/mockbin:/usr/bin:/bin" HOME="$home" \
   MEETINGNOTES_PROGRESS_JSON=true MEETINGNOTES_BOOTSTRAP_TEST_MODE=true DEEPSEEK_API_KEY=dummy \
   MN_HEARTBEAT_SECS=0.2 \
   zsh "$pkg/scripts/bootstrap_mac.sh" 2>&1 | head -c 60 >/dev/null || true
-sleep 1
-
 LOG="$home/MeetingNotes/logs/bootstrap.log"
 [[ -f "$LOG" ]] || { echo "FAIL 没有安装日志"; exit 1; }
+# bootstrap 在后台继续跑；模型轮询本身每 2 秒一次，固定 sleep 1 会随机器负载偶发抢跑。
+# 最多等 10 秒看到第 8 步，仍保留“中途静默退出”回归能力。
+for _ in {1..50}; do
+  grep -q "STEP 8/8" "$LOG" && break
+  sleep 0.2
+done
 for n in 6 7 8; do
   grep -q "STEP $n/8" "$LOG" \
-    || { echo "FAIL 管道断裂/du 空值下未跑到 STEP $n（安装中途静默中止）"; exit 1; }
+    || { echo "FAIL 管道断裂/du 空值下未跑到 STEP $n（安装中途静默中止）"; cat "$LOG"; exit 1; }
 done
 grep -q provision_menubar.sh "$calls" || { echo "FAIL 菜单栏步未执行"; exit 1; }
 grep -q attach "$calls" || { echo "FAIL AirDrop 步未执行"; exit 1; }

@@ -7,9 +7,11 @@ trap 'rm -rf "$tmp"' EXIT
 project="$tmp/project"
 home="$tmp/home"
 mock_bin="$tmp/mock-bin"
-mkdir -p "$project/folder-action" "$home/Downloads" "$home/Desktop" "$mock_bin"
+mkdir -p "$project/folder-action" "$project/scripts" \
+  "$home/Downloads" "$home/Desktop" "$mock_bin"
 project="${project:A}"
 cp "$ROOT/uninstall.sh" "$project/"
+cp "$ROOT/scripts/menubar_identity.sh" "$project/scripts/"
 cp "$ROOT/folder-action/detach-folder-action.applescript" "$project/folder-action/"
 
 path_hash="$(printf '%s' "$project" | shasum | cut -c1-8)"
@@ -19,6 +21,12 @@ compiled="$home/Library/Scripts/Folder Action Scripts/MeetingNotes-$path_hash.sc
 mkdir -p "${plist:h}" "${compiled:h}"
 print -r -- "plist" > "$plist"
 print -r -- "compiled" > "$compiled"
+menubar_label="com.moxiuwen.meetingnotes.menubar.acceptance"
+menubar_plist="$home/Library/LaunchAgents/$menubar_label.plist"
+legacy_menubar_plist="$home/Library/LaunchAgents/com.moxiuwen.meetingnotes.menubar.plist"
+print -r -- "$menubar_label" > "$project/.menubar_label"
+print -r -- "$project" > "$menubar_plist"
+print -r -- "$project" > "$legacy_menubar_plist"
 
 for dir in inbox output done venv models tools runtime bin; do
   mkdir -p "$project/$dir"
@@ -45,7 +53,11 @@ HOME="$home" PATH="$mock_bin:/usr/bin:/bin" \
   "$project/uninstall.sh" --non-interactive
 
 [[ ! -e "$plist" && ! -e "$compiled" ]] || { echo "FAIL service artifacts"; exit 1; }
+[[ ! -e "$menubar_plist" && ! -e "$legacy_menubar_plist" && ! -e "$project/.menubar_label" ]] \
+  || { echo "FAIL menu bar artifacts"; exit 1; }
 grep -q "bootout" "$tmp/launchctl.log" || { echo "FAIL launchctl bootout"; exit 1; }
+grep -Fq "$menubar_label" "$tmp/launchctl.log" \
+  || { echo "FAIL did not boot out persisted menu bar label"; exit 1; }
 grep -q "$home/Downloads" "$tmp/osascript.log" || { echo "FAIL Folder Action detach"; exit 1; }
 for dir in inbox output done venv models tools runtime bin; do
   [[ -f "$project/$dir/keep.txt" ]] || { echo "FAIL preserved $dir"; exit 1; }

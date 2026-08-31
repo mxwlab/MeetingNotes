@@ -36,5 +36,10 @@ MEETINGNOTES_PROGRESS_JSON=true MN_HEARTBEAT_SECS=0.2 \
 grep -A1 'mn_run_with_heartbeat python' "$ROOT/scripts/bootstrap_mac.sh" \
   | grep -Fq 'fetch_python.sh' \
   || { echo "FAIL Python 步未接入 mn_run_with_heartbeat"; exit 1; }
+grep -A7 '^mn_run_with_heartbeat()' "$ROOT/scripts/installer_progress.sh" \
+  | grep -Fq 'unsetopt BG_NICE' \
+  || { echo "FAIL 心跳后台任务未关闭 zsh 自动 nice"; exit 1; }
+grep -Fq 'unsetopt BG_NICE' "$ROOT/scripts/bootstrap_mac.sh" \
+  || { echo "FAIL bootstrap 模型后台任务未关闭 zsh 自动 nice"; exit 1; }
 
 echo PASS
