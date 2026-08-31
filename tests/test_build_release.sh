@@ -102,6 +102,8 @@ if command -v ditto >/dev/null; then
     || { echo "FAIL macOS native extraction dropped bootstrap executable mode"; exit 1; }
   [[ -x "$native_unpack/MeetingNotes/MeetingNotes 安装器.app/Contents/MacOS/MeetingNotes Installer" ]] \
     || { echo "FAIL macOS native extraction dropped installer executable mode"; exit 1; }
+  codesign --verify --deep --strict "$native_unpack/MeetingNotes/MeetingNotes 安装器.app" \
+    || { echo "FAIL installer app signature does not seal bundled resources"; exit 1; }
 fi
 
 echo "PASS"

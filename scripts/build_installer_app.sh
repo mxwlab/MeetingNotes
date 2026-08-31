@@ -33,4 +33,8 @@ PLIST
 chmod +x "$MACOS/MeetingNotes Installer"
 cp "$BASE/assets/MeetingNotes.icns" "$RESOURCES/MeetingNotes.icns"
 plutil -lint "$CONTENTS/Info.plist" >/dev/null
+# clang 产物自带 linker ad-hoc signature，但它没有封装 bundle 资源。Chrome 下载后
+# Gatekeeper 会把“签名与资源不一致”显示成 damaged；资源就位后重新签整个 app，
+# 让本地双击与下载后的首次启动行为一致。
+codesign --force --deep --sign - "$OUTPUT" >/dev/null
 echo "$OUTPUT"
