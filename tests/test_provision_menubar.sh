@@ -2,6 +2,9 @@
 set -eu
 
 ROOT="${0:A:h:h}"
+# 本测试依赖已构建的项目 venv（provision_menubar 会校验 python 环境并构建菜单栏 App）。
+# 托管 CI 是全新检出、无 venv → 无法真跑，自动跳过；本地有 venv 时照常真跑。
+[[ -x "$ROOT/venv/bin/python" ]] || { echo "SKIP test_provision_menubar：需要项目 venv（本地运行；CI 无 venv）"; exit 0; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 project="$tmp/中文 项目/MeetingNotes"
